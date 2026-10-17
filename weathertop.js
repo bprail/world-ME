@@ -99,6 +99,10 @@ const Weathertop = (() => {
       { trigger:{x:0,z:78,radius:8}, to:'bree',
         arrivalOffset:{x:0,z:-8} },
     ],
+    
+    arrivals: {
+      barrowdowns: { x:0, z:70, yaw:0 },  // arrive on the plain south of the hill
+    },
 
     // Called by engine after terrain mesh is built and groundY is live
     buildScene(THREE, scene, groundY, MAT){
