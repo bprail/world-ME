@@ -170,6 +170,7 @@ const Rivendell = {
   ],
 
   boundary: 150,
+  start: { x: 22, z: 90, yaw: Math.PI},
 
   transitions: [
     { trigger: { x: 22, z: 102, radius: 14 }, to: 'Weathertop' },
