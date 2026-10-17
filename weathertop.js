@@ -96,12 +96,11 @@ const Weathertop = (() => {
 
     transitions:[
       // South boundary → Bree (future)
-      { trigger:{x:0,z:78,radius:8}, to:'bree',
-        arrivalOffset:{x:0,z:-8} },
+      { trigger:{x:0,z:70,radius:8}, to:'barrowdowns'},
     ],
     
     arrivals: {
-      barrowdowns: { x:0, z:70, yaw:0 },  // arrive on the plain south of the hill
+      barrowdowns: { x:0, z:45, yaw:0 },  // arrive on the plain south of the hill
     },
 
     // Called by engine after terrain mesh is built and groundY is live
