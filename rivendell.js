@@ -198,6 +198,8 @@ const Rivendell = {
   // -----------------------------------------------------------
   boundary: 140,
 
+  start: { x: 22, z: 88, yaw: Math.PI },
+  
   transitions: [
     {
       trigger: { x: 22, z: 100, radius: 14 },
