@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Middle-earth</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d8b0; }
+#c { display:block; width:100vw; height:100vh; }
+#hud { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+#location-title {
+  position:fixed; top:28px; left:50%; transform:translateX(-50%);
+  font-size:22px; letter-spacing:3px; text-transform:uppercase;
+  color:#c8a96e; text-shadow:0 2px 12px rgba(0,0,0,0.9);
+  opacity:0; transition:opacity 1.5s;
+}
+#location-sub {
+  position:fixed; top:56px; left:50%; transform:translateX(-50%);
+  font-size:12px; letter-spacing:2px; color:#8a7a5a;
+  opacity:0; transition:opacity 1.5s;
+}
+#crosshair { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:20px; height:20px; opacity:0.4; }
+#crosshair::before, #crosshair::after { content:''; position:absolute; background:#c8a96e; border-radius:1px; }
+#crosshair::before { width:1px; height:100%; left:50%; transform:translateX(-50%); }
+#crosshair::after  { height:1px; width:100%; top:50%; transform:translateY(-50%); }
+#controls { position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+  font-size:11px; letter-spacing:1.5px; color:#5a4a2a; text-align:center; }
+#invert-btn {
+  position:fixed; top:16px; right:20px;
+  background:rgba(10,8,4,0.7); border:1px solid #3a2a10;
+  color:#6a5a3a; font-family:'Georgia',serif;
+  font-size:11px; letter-spacing:1.5px; padding:6px 12px;
+  cursor:pointer; border-radius:2px; pointer-events:all;
+  transition:color 0.3s, border-color 0.3s; user-select:none;
+}
+#invert-btn:hover { color:#c8a96e; border-color:#6a4a20; }
+#invert-btn.active { color:#c8a96e; border-color:#c8a96e; }
+#start-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.88);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:16px; cursor:pointer; transition:opacity 0.8s; pointer-events:all; z-index:100;
+}
+#start-overlay h1 { font-size:38px; letter-spacing:6px; color:#c8a96e; font-weight:normal; }
+#start-overlay p  { font-size:13px; letter-spacing:2px; color:#6a5a3a; }
+#start-overlay .sub { font-size:11px; color:#4a3a22; margin-top:8px; }
+#start-overlay.gone { opacity:0; pointer-events:none; }
+#transition-overlay {
+  position:fixed; inset:0; background:#000; opacity:0; pointer-events:none;
+  transition:opacity 0.8s; z-index:50;
+}
+#transition-overlay.fade { opacity:1; }
+#mobile-controls {
+  position:fixed; bottom:0; left:0; width:100%; display:none;
+  pointer-events:all; padding:16px; gap:8px;
+  justify-content:space-between; align-items:flex-end;
+}
+.dpad { display:grid; grid-template-columns:repeat(3,44px); grid-template-rows:repeat(3,44px); gap:4px; }
+.dpad-btn {
+  background:rgba(200,169,110,0.15); border:1px solid rgba(200,169,110,0.3);
+  border-radius:8px; color:#c8a96e; font-size:18px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  user-select:none; -webkit-user-select:none; touch-action:none;
+}
+.dpad-btn:active { background:rgba(200,169,110,0.3); }
+.look-area { flex:1; height:132px; margin:0 12px;
+  background:rgba(200,169,110,0.05); border:1px solid rgba(200,169,110,0.1);
+  border-radius:12px; display:flex; align-items:center; justify-content:center; }
+.look-area span { font-size:11px; color:#4a3a22; letter-spacing:1px; }
+#lore-popup {
+  position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+  background:rgba(10,8,4,0.93); border:1px solid #3a2a10;
+  padding:16px 24px; max-width:360px; text-align:center;
+  font-size:13px; line-height:1.8; color:#b0903a;
+  letter-spacing:0.5px; opacity:0; transition:opacity 0.8s;
+  pointer-events:none; border-radius:2px;
+}
+#lore-popup.show { opacity:1; }
+#lore-popup cite { display:block; margin-top:8px; font-size:10px; color:#5a4020; letter-spacing:1.5px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div id="location-title"></div>
+  <div id="location-sub"></div>
+  <div id="crosshair"></div>
+  <div id="controls">WASD · move &nbsp;|&nbsp; QE · turn &nbsp;|&nbsp; I · invert Y</div>
+  <div id="lore-popup"></div>
+  <button id="invert-btn">INVERT Y: OFF</button>
+</div>
+<div id="start-overlay">
+  <h1>Middle-earth</h1>
+  <p id="start-loc-name"></p>
+  <div class="sub">Click or tap to begin</div>
+</div>
+<div id="transition-overlay"></div>
+<div id="mobile-controls">
+  <div class="dpad">
+    <div></div><div class="dpad-btn" data-dir="f">▲</div><div></div>
+    <div class="dpad-btn" data-dir="l">◀</div><div></div><div class="dpad-btn" data-dir="r">▶</div>
+    <div></div><div class="dpad-btn" data-dir="b">▼</div><div></div>
+  </div>
+  <div class="look-area" id="look-area"><span>drag to look</span></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<!-- Location modules — add new ones here -->
+<script src="weathertop.js"></script>
+<!-- <script src="bree.js"></script> -->
+
+<script>
+'use strict';
+
+// ── LOCATION REGISTRY ────────────────────────────────────────────────────────
+// Map location name → module. Each module script sets a global (e.g. Weathertop).
+const LOCATIONS = {
+  weathertop: Weathertop,
+  // bree: Bree,
+};
+
+// Which location to start in (could be driven by URL hash: #bree)
+const START_LOCATION = location.hash.slice(1) || 'weathertop';
+
+// ── RENDERER ─────────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({
+  canvas: document.getElementById('c'), antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.65;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.autoClear = false;
+
+const scene  = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 1200);
+const starScene  = new THREE.Scene();
+const starCamera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.01, 10);
+
+window.addEventListener('resize', () => {
+  camera.aspect = starCamera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix(); starCamera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ── NOISE (shared, available to location modules) ─────────────────────────────
+const PERM = Array.from({length:512},(_,i)=>i<256?i:0)
+  .map((v,i,a)=>i<256?v:a[Math.floor(Math.random()*256)]);
+function fade(t){return t*t*t*(t*(t*6-15)+10);}
+function lerp(a,b,t){return a+t*(b-a);}
+function grad(h,x,z){h&=3;const u=h<2?x:z,v=h<2?z:x;return((h&1)?-u:u)+((h&2)?-v:v);}
+function noise2d(x,z){
+  const X=Math.floor(x)&255, Z=Math.floor(z)&255;
+  x-=Math.floor(x); z-=Math.floor(z);
+  const u=fade(x),v=fade(z);
+  const aa=PERM[X]+Z,bb=PERM[X+1]+Z;
+  return (lerp(lerp(grad(PERM[aa],x,z),grad(PERM[bb],x-1,z),u),
+               lerp(grad(PERM[aa+1],x,z-1),grad(PERM[bb+1],x-1,z-1),u),v)+1)*0.5;
+}
+function fbm(x,z,oct=5){
+  let v=0,a=1,f=1,mx=0;
+  for(let i=0;i<oct;i++){v+=(noise2d(x*f,z*f)*2-1)*a;mx+=a;a*=0.48;f*=2.1;}
+  return v/mx;
+}
+// Make available to location modules
+window.api_fbm    = fbm;
+window.api_noise2d= noise2d;
+window.api_lerp   = lerp;
+
+// ── STARS (engine-owned, always present) ─────────────────────────────────────
+function makeStarLayer(count,size,color,opacity){
+  const geo=new THREE.BufferGeometry();
+  const v=[];
+  for(let i=0;i<count;i++){
+    const theta=Math.random()*Math.PI*2;
+    const phi=Math.acos(1-Math.random()*1.55);
+    v.push(Math.sin(phi)*Math.cos(theta),Math.cos(phi),Math.sin(phi)*Math.sin(theta));
+  }
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+  const mat=new THREE.PointsMaterial({color,size,sizeAttenuation:false,
+    transparent:true,opacity,depthWrite:false});
+  const pts=new THREE.Points(geo,mat);
+  pts.renderOrder=-1; starScene.add(pts); return {pts,mat};
+}
+const starsFaint  =makeStarLayer(2200,1.2,0xc8d8ff,0.60);
+const starsBright =makeStarLayer(320, 2.0,0xffffff,0.92);
+const starsTwinkle=makeStarLayer(80,  2.8,0xffe8cc,0.95);
+
+// ── LOCATION STATE ────────────────────────────────────────────────────────────
+let currentLoc   = null;  // active location module
+let locRefs      = null;  // objects returned by buildScene
+let terrain      = null;  // THREE.Mesh — the terrain
+let groundYFn    = null;  // (x,z)→y using height grid
+let locObjects   = [];    // all scene objects added by location (for teardown)
+
+// ── HEIGHT GRID (fast lookup replacing per-frame raycasting) ──────────────────
+// Baked once after terrain is built. 1-unit grid, bilinear interpolation.
+let hGrid=null, hGridMin=0, hGridSize=0, hGridRes=0;
+
+function bakeHeightGrid(terrainMesh, heightFn, extent, resolution){
+  // extent: half-size of the grid square (e.g. 120 covers ±120 world units)
+  // resolution: cells across full width (e.g. 240 → 1-unit cells for extent=120)
+  hGridMin  = -extent;
+  hGridSize = extent*2;
+  hGridRes  = resolution;
+  hGrid     = new Float32Array((resolution+1)*(resolution+1));
+  for(let iz=0;iz<=resolution;iz++){
+    for(let ix=0;ix<=resolution;ix++){
+      const wx = hGridMin + (ix/resolution)*hGridSize;
+      const wz = hGridMin + (iz/resolution)*hGridSize;
+      hGrid[iz*(resolution+1)+ix] = heightFn(wx,wz);
+    }
+  }
+}
+
+function groundY(wx,wz){
+  if(!hGrid) return 0;
+  // Convert world→grid coords
+  const gx = (wx - hGridMin)/hGridSize * hGridRes;
+  const gz = (wz - hGridMin)/hGridSize * hGridRes;
+  const ix = Math.floor(gx), iz = Math.floor(gz);
+  const fx = gx-ix, fz = gz-iz;
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  const ix0=clamp(ix,0,hGridRes-1), ix1=clamp(ix+1,0,hGridRes);
+  const iz0=clamp(iz,0,hGridRes-1), iz1=clamp(iz+1,0,hGridRes);
+  const n=hGridRes+1;
+  const h00=hGrid[iz0*n+ix0], h10=hGrid[iz0*n+ix1];
+  const h01=hGrid[iz1*n+ix0], h11=hGrid[iz1*n+ix1];
+  return lerp(lerp(h00,h10,fx), lerp(h01,h11,fx), fz);
+}
+function eyeHeight(x,z){ return groundY(x,z)+1.75; }
+
+// ── MATERIALS (shared palette, location can reference by key) ─────────────────
+const MAT = {
+  STONE:      new THREE.MeshLambertMaterial({color:0x2e2c28, emissive:0x070605}),
+  STONE_DARK: new THREE.MeshLambertMaterial({color:0x201e1c, emissive:0x050404}),
+  STONE_MOSS: new THREE.MeshLambertMaterial({color:0x252820, emissive:0x050605}),
+};
+
+// ── LOAD LOCATION ─────────────────────────────────────────────────────────────
+function loadLocation(locName, arrivalPos){
+  const loc = LOCATIONS[locName];
+  if(!loc){ console.error('Unknown location:', locName); return; }
+
+  // Tear down previous location
+  for(const obj of locObjects) scene.remove(obj);
+  locObjects = [];
+  if(terrain) scene.remove(terrain);
+
+  // Atmosphere
+  const atm = loc.atmosphere;
+  renderer.setClearColor(atm.skyColor, 1);
+  scene.fog = new THREE.FogExp2(atm.fogColor, atm.fogDensity);
+  // Clear old lights, add new
+  scene.children.filter(c=>c.isLight).forEach(l=>scene.remove(l));
+  const ambient = new THREE.AmbientLight(atm.ambientColor, atm.ambientIntensity);
+  scene.add(ambient);
+  const moon = new THREE.DirectionalLight(atm.moonColor, atm.moonIntensity);
+  moon.position.set(atm.moonPosition.x, atm.moonPosition.y, atm.moonPosition.z);
+  moon.castShadow=true; moon.shadow.mapSize.set(2048,2048);
+  moon.shadow.camera.near=1; moon.shadow.camera.far=600;
+  moon.shadow.camera.left=moon.shadow.camera.bottom=-150;
+  moon.shadow.camera.right=moon.shadow.camera.top=150;
+  scene.add(moon);
+
+  // Build terrain mesh
+  const TRES=220;
+  const tGeo=new THREE.PlaneGeometry(500,500,TRES,TRES);
+  tGeo.rotateX(-Math.PI/2);
+  const tPos=tGeo.attributes.position;
+  for(let i=0;i<tPos.count;i++) tPos.setY(i, loc.hillHeight(tPos.getX(i),tPos.getZ(i)));
+  tGeo.computeVertexNormals();
+
+  // Vertex colours
+  const vColors=[];
+  const onP = loc.onPath || (()=>0);
+  for(let i=0;i<tPos.count;i++){
+    const vx=tPos.getX(i), vy=tPos.getY(i), vz=tPos.getZ(i);
+    let [cr,cg,cb] = loc.vertexColor(vx,vy,vz,noise2d,lerp);
+    const pt=onP(vx,vz);
+    if(pt>0){ cr=lerp(cr,0.38,pt*0.85); cg=lerp(cg,0.30,pt*0.85); cb=lerp(cb,0.16,pt*0.85); }
+    vColors.push(cr,cg,cb);
+  }
+  tGeo.setAttribute('color',new THREE.Float32BufferAttribute(vColors,3));
+  terrain = new THREE.Mesh(tGeo, new THREE.MeshLambertMaterial({vertexColors:true}));
+  terrain.receiveShadow=true;
+  scene.add(terrain);
+
+  // Bake height grid (replaces slow raycasting)
+  bakeHeightGrid(terrain, loc.hillHeight, 120, 240);
+
+  // Path ribbon
+  if(loc.pathWaypoints){
+    const PATH_W=0.55, STEP=0.4;
+    const wp=loc.pathWaypoints;
+    const centreLine=[];
+    for(let i=0;i<wp.length-1;i++){
+      const [ax,az]=wp[i],[bx,bz]=wp[i+1];
+      const dx=bx-ax,dz=bz-az,dist=Math.sqrt(dx*dx+dz*dz);
+      const steps=Math.max(1,Math.ceil(dist/STEP));
+      for(let s=0;s<steps;s++) centreLine.push([ax+dx*s/steps, az+dz*s/steps]);
+    }
+    centreLine.push(wp[wp.length-1]);
+
+    const verts=[],tris=[];
+    let vi=0;
+    for(let i=0;i<centreLine.length-1;i++){
+      const [x0,z0]=centreLine[i],[x1,z1]=centreLine[i+1];
+      const dx=x1-x0,dz=z1-z0,len=Math.sqrt(dx*dx+dz*dz)||1;
+      const px=-dz/len,pz=dx/len,hw=PATH_W*0.5;
+      const corners=[[x0+px*hw,z0+pz*hw],[x0-px*hw,z0-pz*hw],
+                     [x1+px*hw,z1+pz*hw],[x1-px*hw,z1-pz*hw]];
+      for(const [cx,cz] of corners){
+        const dy_dx=Math.abs(groundY(cx+0.5,cz)-groundY(cx-0.5,cz));
+        const dy_dz=Math.abs(groundY(cx,cz+0.5)-groundY(cx,cz-0.5));
+        const slope=Math.sqrt(dy_dx*dy_dx+dy_dz*dy_dz);
+        const lift=0.04+Math.min(0.14,slope*0.5);
+        verts.push(cx, groundY(cx,cz)+lift, cz);
+      }
+      tris.push(vi,vi+1,vi+2, vi+1,vi+3,vi+2); vi+=4;
+    }
+    const pGeo=new THREE.BufferGeometry();
+    pGeo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+    pGeo.setIndex(tris); pGeo.computeVertexNormals();
+    const pathMesh=new THREE.Mesh(pGeo, new THREE.MeshLambertMaterial({
+      color:0x5a4a2a, emissive:0x2a1e08, side:THREE.DoubleSide,
+      depthFunc:THREE.LessEqualDepth}));
+    pathMesh.renderOrder=1;
+    scene.add(pathMesh);
+    locObjects.push(pathMesh);
+  }
+
+  // Build scene objects
+  locRefs = loc.buildScene(THREE, scene, groundY, MAT);
+
+  // Player start
+  const st = arrivalPos || loc.start;
+  camera.position.set(st.x, eyeHeight(st.x, st.z), st.z);
+  player.yaw  = st.yaw || 0;
+  player.pitch= 0;
+
+  currentLoc = loc;
+
+  // HUD
+  document.getElementById('location-title').textContent = loc.name;
+  document.getElementById('location-sub').textContent   = loc.subtitle || '';
+  document.getElementById('start-loc-name').textContent  = loc.subtitle || loc.name;
+  document.title = `Middle-earth · ${loc.name}`;
+  // Update URL hash without reload
+  history.replaceState(null,'','#'+locName);
+}
+
+// ── TRANSITION ────────────────────────────────────────────────────────────────
+let transitioning = false;
+const transOverlay = document.getElementById('transition-overlay');
+
+function triggerTransition(to, arrivalOffset){
+  if(transitioning) return;
+  transitioning = true;
+  transOverlay.classList.add('fade');
+  setTimeout(()=>{
+    loadLocation(to, arrivalOffset ? {
+      x: arrivalOffset.x, z: arrivalOffset.z,
+      yaw: player.yaw
+    } : null);
+    showLocation();
+    setTimeout(()=>{ transOverlay.classList.remove('fade'); transitioning=false; }, 800);
+  }, 800);
+}
+
+function checkTransitions(pos){
+  if(!currentLoc || !currentLoc.transitions) return;
+  for(const tr of currentLoc.transitions){
+    if(!LOCATIONS[tr.to]) continue; // location not loaded yet
+    const dx=pos.x-tr.trigger.x, dz=pos.z-tr.trigger.z;
+    if(Math.sqrt(dx*dx+dz*dz)<tr.trigger.radius){
+      const off = tr.arrivalOffset || {x:0,z:0};
+      triggerTransition(tr.to, {x:off.x, z:off.z, yaw:player.yaw});
+      return;
+    }
+  }
+}
+
+// ── INPUT ─────────────────────────────────────────────────────────────────────
+let locked=false, started=false;
+const overlay=document.getElementById('start-overlay');
+
+let invertY=localStorage.getItem('me_invertY')==='1';
+const invertBtn=document.getElementById('invert-btn');
+function updateInvertBtn(){
+  invertBtn.textContent='INVERT Y: '+(invertY?'ON':'OFF');
+  invertBtn.classList.toggle('active',invertY);
+  localStorage.setItem('me_invertY',invertY?'1':'0');
+}
+updateInvertBtn();
+invertBtn.addEventListener('click',e=>{e.stopPropagation();invertY=!invertY;updateInvertBtn();});
+
+function requestLock(){document.body.requestPointerLock();}
+overlay.addEventListener('click',requestLock);
+document.getElementById('c').addEventListener('click',()=>{if(started&&!locked)requestLock();});
+document.addEventListener('pointerlockchange',()=>{
+  locked=document.pointerLockElement===document.body;
+  if(locked&&!started){
+    started=true;
+    overlay.classList.add('gone');
+    setTimeout(()=>overlay.style.display='none',900);
+    showLocation();
+  }
+});
+
+const player={yaw:0,pitch:0,speed:5.5};
+const keys={};
+document.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(e.code==='KeyI'){invertY=!invertY;updateInvertBtn();}
+});
+document.addEventListener('keyup',e=>{keys[e.code]=false;});
+
+const TURN_SPEED=1.4;
+document.addEventListener('mousemove',e=>{
+  if(!locked)return;
+  player.yaw-=e.movementX*0.002;
+  const pd=e.movementY*0.002;
+  player.pitch+=invertY?pd:-pd;
+  player.pitch=Math.max(-1.2,Math.min(1.2,player.pitch));
+});
+
+let touchStart=null;
+const lookArea=document.getElementById('look-area');
+lookArea.addEventListener('touchstart',e=>{touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
+lookArea.addEventListener('touchmove',e=>{
+  if(!touchStart)return;
+  player.yaw-=(e.touches[0].clientX-touchStart.x)*0.004;
+  const dy=e.touches[0].clientY-touchStart.y;
+  player.pitch+=invertY?dy*0.004:-dy*0.004;
+  player.pitch=Math.max(-1.2,Math.min(1.2,player.pitch));
+  touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY};
+},{passive:true});
+lookArea.addEventListener('touchend',()=>{touchStart=null;},{passive:true});
+
+const dpadState={};
+document.querySelectorAll('.dpad-btn').forEach(btn=>{
+  const dir=btn.dataset.dir;
+  btn.addEventListener('touchstart',()=>{dpadState[dir]=true;},{passive:true});
+  btn.addEventListener('touchend',  ()=>{dpadState[dir]=false;},{passive:true});
+  btn.addEventListener('touchcancel',()=>{dpadState[dir]=false;},{passive:true});
+});
+if('ontouchstart' in window){
+  document.getElementById('mobile-controls').style.display='flex';
+  overlay.querySelector('.sub').textContent='Tap to begin';
+  overlay.addEventListener('click',()=>{
+    overlay.classList.add('gone');
+    setTimeout(()=>overlay.style.display='none',900);
+    showLocation(); locked=true;
+  });
+}
+
+// ── LOCATION TITLE ────────────────────────────────────────────────────────────
+function showLocation(){
+  const t=document.getElementById('location-title');
+  const s=document.getElementById('location-sub');
+  t.style.opacity='1'; s.style.opacity='1';
+  setTimeout(()=>{t.style.opacity='0';s.style.opacity='0';},4000);
+}
+
+// ── LORE ──────────────────────────────────────────────────────────────────────
+let activeLore=-1, loreTimer=null;
+const lorePopup=document.getElementById('lore-popup');
+
+function checkLore(pos){
+  if(!currentLoc) return;
+  const pts=currentLoc.lorePoints||[];
+  for(let i=0;i<pts.length;i++){
+    const lp=pts[i];
+    const dx=pos.x-lp.pos.x, dz=pos.z-lp.pos.z;
+    if(Math.sqrt(dx*dx+dz*dz)<lp.radius){
+      if(activeLore!==i){
+        activeLore=i;
+        lorePopup.innerHTML=`${lp.text}<cite>${lp.cite}</cite>`;
+        lorePopup.classList.add('show');
+        if(loreTimer)clearTimeout(loreTimer);
+        loreTimer=setTimeout(()=>{lorePopup.classList.remove('show');activeLore=-1;},8000);
+      }
+      return;
+    }
+  }
+}
+
+// ── GAME LOOP ─────────────────────────────────────────────────────────────────
+const clock=new THREE.Clock();
+const euler=new THREE.Euler(0,0,0,'YXZ');
+const moveDir=new THREE.Vector3();
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),0.05);
+  const t=clock.elapsedTime;
+
+  if(keys['KeyQ'])player.yaw+=TURN_SPEED*dt;
+  if(keys['KeyE'])player.yaw-=TURN_SPEED*dt;
+
+  euler.set(player.pitch,player.yaw,0);
+  camera.quaternion.setFromEuler(euler);
+
+  const fwd=new THREE.Vector3(-Math.sin(player.yaw),0,-Math.cos(player.yaw));
+  const rgt=new THREE.Vector3( Math.cos(player.yaw),0,-Math.sin(player.yaw));
+  moveDir.set(0,0,0);
+  if(keys['KeyW']||keys['ArrowUp']   ||dpadState['f'])moveDir.addScaledVector(fwd, 1);
+  if(keys['KeyS']||keys['ArrowDown'] ||dpadState['b'])moveDir.addScaledVector(fwd,-1);
+  if(keys['KeyA']||keys['ArrowLeft'] ||dpadState['l'])moveDir.addScaledVector(rgt,-1);
+  if(keys['KeyD']||keys['ArrowRight']||dpadState['r'])moveDir.addScaledVector(rgt, 1);
+  if(moveDir.lengthSq()>0)moveDir.normalize();
+  camera.position.addScaledVector(moveDir,player.speed*dt);
+
+  // Terrain follow
+  const gY=eyeHeight(camera.position.x,camera.position.z);
+  camera.position.y+=(gY-camera.position.y)*Math.min(1,dt*10);
+
+  // Boundary
+  const bd=currentLoc?currentLoc.boundary:85;
+  const fd=Math.sqrt(camera.position.x**2+camera.position.z**2);
+  if(fd>bd){camera.position.x=camera.position.x/fd*bd;camera.position.z=camera.position.z/fd*bd;}
+
+  if(!transitioning){
+    checkLore(camera.position);
+    checkTransitions(camera.position);
+  }
+
+  // Location per-frame animation
+  if(currentLoc && locRefs) currentLoc.onFrame(t, dt, locRefs);
+
+  // Stars
+  starCamera.quaternion.copy(camera.quaternion);
+  const sr=t*0.00015;
+  starsFaint.pts.rotation.y=sr; starsBright.pts.rotation.y=sr; starsTwinkle.pts.rotation.y=sr;
+  starsTwinkle.mat.opacity=0.80+Math.sin(t*1.3)*0.12+Math.sin(t*2.7)*0.08;
+  starsBright.mat.opacity =0.85+Math.sin(t*0.9+1.0)*0.07;
+
+  renderer.clear();
+  renderer.render(starScene,starCamera);
+  renderer.clearDepth();
+  renderer.render(scene,camera);
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+loadLocation(START_LOCATION);
+animate();
+</script>
+</body>
+</html>
