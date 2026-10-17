@@ -370,3 +370,4 @@ const Weathertop = (() => {
 
 // Expose for engine
 if(typeof module!=='undefined') module.exports=Weathertop;
+window.Weathertop=Weathertop;

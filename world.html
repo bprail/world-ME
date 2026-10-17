@@ -117,8 +117,8 @@ body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d
 // ── LOCATION REGISTRY ────────────────────────────────────────────────────────
 // Map location name → module. Each module script sets a global (e.g. Weathertop).
 const LOCATIONS = {
-  weathertop: Weathertop,
-  barrowdowns: BarrowDowns,
+  weathertop: window.Weathertop,
+  barrowdowns: window.BarrowDowns,
   // bree: Bree,
 };
 

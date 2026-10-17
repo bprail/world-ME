@@ -466,3 +466,5 @@ const BarrowDowns = {
     }
   },
 };
+
+window.BarrowDowns = BarrowDowns;
