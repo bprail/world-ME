@@ -283,9 +283,18 @@ function loadLocation(locName, arrivalPos){
   // Atmosphere
   const atm=loc.atmosphere;
   renderer.setClearColor(atm.skyColor,1);
-  scene.fog=new THREE.FogExp2(atm.fogColor,atm.fogDensity);
+
+  // Fog — exponential (default, night) or linear (valley/interior, daytime)
+  if(atm.fogType==='linear'){
+    scene.fog=new THREE.Fog(atm.fogColor, atm.fogNear||80, atm.fogFar||300);
+  } else {
+    scene.fog=new THREE.FogExp2(atm.fogColor, atm.fogDensity);
+  }
+
   const ambient=new THREE.AmbientLight(atm.ambientColor,atm.ambientIntensity);
   scene.add(ambient);
+
+  // Primary light (sun or moon)
   const moon=new THREE.DirectionalLight(atm.moonColor,atm.moonIntensity);
   moon.position.set(atm.moonPosition.x,atm.moonPosition.y,atm.moonPosition.z);
   moon.castShadow=true; moon.shadow.mapSize.set(2048,2048);
@@ -293,6 +302,22 @@ function loadLocation(locName, arrivalPos){
   moon.shadow.camera.left=moon.shadow.camera.bottom=-150;
   moon.shadow.camera.right=moon.shadow.camera.top=150;
   scene.add(moon);
+
+  // Extra lights — fill lights, rim lights, secondary suns, etc.
+  // Each: { color, intensity, x, y, z, castShadow? }
+  if(atm.extraLights){
+    for(const ld of atm.extraLights){
+      const el=new THREE.DirectionalLight(ld.color, ld.intensity);
+      el.position.set(ld.x, ld.y, ld.z);
+      if(ld.castShadow){
+        el.castShadow=true; el.shadow.mapSize.set(1024,1024);
+        el.shadow.camera.near=1; el.shadow.camera.far=400;
+        el.shadow.camera.left=el.shadow.camera.bottom=-100;
+        el.shadow.camera.right=el.shadow.camera.top=100;
+      }
+      scene.add(el);
+    }
+  }
 
   // Terrain mesh
   const TRES=220;
@@ -632,7 +657,10 @@ function animate(){
   }
 
   renderer.clear();
-  renderer.render(starScene,starCamera);
+  // Skip stars for daytime locations (showStars: false in atmosphere)
+  if(!currentLoc || currentLoc.atmosphere.showStars !== false){
+    renderer.render(starScene,starCamera);
+  }
   renderer.clearDepth();
   renderer.render(scene,camera);
 }
