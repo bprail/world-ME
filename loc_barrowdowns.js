@@ -15,7 +15,7 @@ const BarrowDowns = {
   // ── Atmosphere ────────────────────────────────────────────
   atmosphere: {
     fogColor:          0x3a4a55,   // cold slate-blue mist
-    fogDensity:        0.038,      // dense — visibility ~25 u
+    fogDensity:        0.030,      // dense but hills must read through it
     skyColor:          0x0d1218,   // near-black midnight sky
     ambientColor:      0x1a2a38,   // deep cold blue ambient
     ambientIntensity:  0.55,
@@ -25,56 +25,73 @@ const BarrowDowns = {
   },
 
   // ── Terrain ───────────────────────────────────────────────
-  // Barrow-downs: low rounded hills separated by shallow valleys.
-  // Barrows sit on the crown of each hill. Paths wind between them.
+  // Barrow-downs: proper hills — 50-100 ft real-world (~15-30 u at 1u≈1.5ft).
+  // Long smooth wavelengths for rounded downs; fine detail for turf texture.
   hillHeight(x, z) {
-    // Large rolling downs — long wavelength, modest amplitude
-    const h0 = api_fbm(x * 0.018, z * 0.018) * 9.0;          // main rolling hills
-    const h1 = api_fbm(x * 0.055 + 4.1, z * 0.055 - 2.3) * 3.0; // secondary bumps
-    const h2 = api_fbm(x * 0.12 + 1.7, z * 0.12 + 5.5) * 0.8;   // fine texture
-    const flat = api_lerp(h0 + h1 + h2, 0.4, 0.18);           // keep valleys shallow-ish
-    return flat;
+    // Primary rolling hills — long wavelength, real amplitude (≈18 u peak)
+    const h0 = api_fbm(x * 0.014, z * 0.014) * 18.0;
+    // Secondary ridgelines — medium wavelength
+    const h1 = api_fbm(x * 0.040 + 4.1, z * 0.040 - 2.3) * 6.0;
+    // Fine surface texture — keeps turf from looking like plastic
+    const h2 = api_fbm(x * 0.10 + 1.7, z * 0.10 + 5.5) * 1.2;
+    // Blend: valleys stay open, hilltops dome smoothly
+    return h0 + h1 + h2;
   },
 
   vertexColor(vx, vy, vz, noise2d, lerp) {
-    // Dead grey-green turf, bleached by dread, dark in valleys
-    const n = noise2d(vx * 0.09, vz * 0.09);
-    const parch = noise2d(vx * 0.22 + 3.1, vz * 0.18 - 1.4); // dry patches
+    // Color zones are keyed to real terrain height ranges now that hills are taller.
+    // Valley floor  vy < 2   → dark wet loam
+    // Hillside      vy 2-12  → dead grey-green turf
+    // Upper slopes  vy 12-20 → wind-bleached pale turf
+    // Crest         vy > 20  → bone-white scoured rock/turf
+    //
+    // Noise adds within-zone variation so it reads as organic patches,
+    // not a lighting gradient.
 
-    // Base dead grass: cold yellow-grey
-    const grassR = lerp(0.28, 0.38, n);
-    const grassG = lerp(0.30, 0.40, n);
-    const grassB = lerp(0.20, 0.26, n);
+    const n     = noise2d(vx * 0.08,  vz * 0.08);   // large-scale patch variation
+    const n2    = noise2d(vx * 0.25 + 3.1, vz * 0.20 - 1.4); // mid-scale blotch
+    const nFine = noise2d(vx * 0.55 + 7.2, vz * 0.48 + 2.8); // fine speckle
 
-    // Dark loam in valleys (low vy relative to surroundings)
-    const loamFactor = Math.max(0, 1.0 - vy * 0.18);
-    const loamR = 0.14; const loamG = 0.13; const loamB = 0.10;
+    // ── Base colours ──
+    // Dark loam (valley)
+    const loamR = 0.13 + n * 0.04,  loamG = 0.12 + n * 0.03,  loamB = 0.09 + n * 0.02;
+    // Dead turf (hillside) — grey-green, desaturated
+    const turfR = 0.28 + n * 0.07,  turfG = 0.30 + n * 0.07,  turfB = 0.20 + n * 0.04;
+    // Bleached turf (upper) — yellowy-grey
+    const bleachR = 0.42 + n2 * 0.06, bleachG = 0.40 + n2 * 0.05, bleachB = 0.30 + n2 * 0.04;
+    // Scoured crest — near-white cold stone/bare soil
+    const crestR = 0.58 + nFine * 0.06, crestG = 0.56 + nFine * 0.05, crestB = 0.48 + nFine * 0.04;
 
-    // Bleached crest (wind-scoured hilltop)
-    const crestFactor = Math.max(0, (vy - 5.0) * 0.12);
-    const crestR = 0.48; const crestG = 0.46; const crestB = 0.38;
+    // ── Smooth height-based transitions ──
+    // Each band transitions over a ~3u range to avoid hard lines.
+    function band(lo, hi) { return Math.max(0, Math.min(1, (vy - lo) / (hi - lo))); }
 
-    // Parch patches — bone-pale dead grass
-    const parchFactor = Math.max(0, parch - 0.6) * 2.5;
-    const parchR = 0.52; const parchG = 0.50; const parchB = 0.40;
+    const tLoam   = 1.0 - band(0.5, 3.5);   // valley floor fades in below vy=3.5
+    const tTurf   = band(1.0, 4.0) * (1.0 - band(11.0, 14.0));
+    const tBleach = band(10.0, 13.0) * (1.0 - band(18.0, 21.0));
+    const tCrest  = band(17.0, 21.0);
 
-    let r = lerp(grassR, loamR,  loamFactor);
-    let g = lerp(grassG, loamG,  loamFactor);
-    let b = lerp(grassB, loamB,  loamFactor);
-    r = lerp(r, crestR, Math.min(1, crestFactor));
-    g = lerp(g, crestG, Math.min(1, crestFactor));
-    b = lerp(b, crestB, Math.min(1, crestFactor));
-    r = lerp(r, parchR, Math.min(1, parchFactor));
-    g = lerp(g, parchG, Math.min(1, parchFactor));
-    b = lerp(b, parchB, Math.min(1, parchFactor));
+    // Normalise so weights sum to ~1
+    const wSum = tLoam + tTurf + tBleach + tCrest + 0.001;
+    const wL = tLoam / wSum, wT = tTurf / wSum, wB = tBleach / wSum, wC = tCrest / wSum;
+
+    let r = wL*loamR   + wT*turfR   + wB*bleachR   + wC*crestR;
+    let g = wL*loamG   + wT*turfG   + wB*bleachG   + wC*crestG;
+    let b = wL*loamB   + wT*turfB   + wB*bleachB   + wC*crestB;
+
+    // Extra parch blotch — large noise patches of extra-pale dead grass
+    // Use n2 threshold so patches are wide enough to read as ground cover,
+    // not random noise speckle
+    const parch = Math.max(0, (n2 - 0.58) * 2.5);
+    r = lerp(r, 0.50, parch * 0.6);
+    g = lerp(g, 0.48, parch * 0.6);
+    b = lerp(b, 0.37, parch * 0.6);
 
     return [r, g, b];
   },
 
   // Path proximity — sinuous track between the barrows
   onPath(x, z) {
-    // Main path: winds east from start toward Weathertop transition
-    // Defined as a piecewise linear spine; return smooth proximity
     const waypoints = BarrowDowns.pathWaypoints;
     let minDist = Infinity;
     for (let i = 0; i < waypoints.length - 1; i++) {
@@ -97,58 +114,56 @@ const BarrowDowns = {
   },
 
   // ── Path waypoints ────────────────────────────────────────
-  // Winds north-east through the downs, skirting the main barrow clusters
   pathWaypoints: [
     [  0,   0],
-    [ 10, -12],
-    [ 22, -20],
-    [ 32, -14],
-    [ 44, -22],
-    [ 55, -18],
-    [ 66, -28],
-    [ 78, -24],
-    [ 88, -32],
-    [100, -28],
-    [112, -38],
-    [124, -32],
-    [136, -40],
-    [150, -36],
+    [ 12, -14],
+    [ 26, -22],
+    [ 38, -16],
+    [ 50, -26],
+    [ 62, -20],
+    [ 74, -32],
+    [ 86, -26],
+    [ 98, -36],
+    [112, -30],
+    [126, -42],
+    [140, -36],
+    [152, -44],
   ],
 
   // ── Player start ──────────────────────────────────────────
-  start: { x: 0, z: 0, yaw: 0.4 },  // facing north-east, into the downs
+  start: { x: 0, z: 0, yaw: 0.4 },
 
   // ── World boundary ────────────────────────────────────────
-  boundary: 180,
+  boundary: 190,
 
   // ── Lore points ───────────────────────────────────────────
   lorePoints: [
     {
-      pos: { x: -18, z: -30 },
-      radius: 10,
+      pos: { x: -18, z: -38 },
+      radius: 12,
       text: 'Here lie the Barrow-downs, where the Great Barrows were raised in the Second Age for the kings of Cardolan. In evil days the Witch-king of Angmar sent wights out of Rhûdaur to inhabit the mounds — and so they became a place of dread, shunned by all living folk.',
       cite: 'The Lord of the Rings, Appendix A',
     },
     {
-      pos: { x: 30, z: -50 },
-      radius: 9,
+      pos: { x: 38, z: -55 },
+      radius: 10,
       text: 'Tom Bombadil warned the hobbits: "Don\'t go a-meddling with old stone or cold Wights or prying in their houses, unless you be strong folk with hearts that never falter." The cold that breathes from the barrow-doors is no mere night chill — it is the breath of the dead years.',
       cite: 'The Fellowship of the Ring, Ch. 7',
     },
     {
-      pos: { x: 60, z: -35 },
+      pos: { x: 74, z: -42 },
       radius: 11,
       text: 'Frodo woke alone inside the barrow. A long arm groped toward his friends. He heard a cold voice chanting:\n"Cold be hand and heart and bone, and cold be sleep under stone: never more to wake on stony bed, never, till the Sun fails and the Moon is dead."',
       cite: 'The Fellowship of the Ring, Ch. 8',
     },
     {
-      pos: { x: 90, z: -55 },
-      radius: 9,
+      pos: { x: 112, z: -58 },
+      radius: 10,
       text: 'The blades of the Barrow-wights bore an ancient enchantment — the swords buried with the Dúnedain long ages past. When Merry struck the Witch-king on the Fields of the Pelennor, it was one of these long-kept blades that broke the spell, for they had been made with that very purpose in an age now forgotten.',
       cite: 'The Return of the King, Appendix A',
     },
     {
-      pos: { x: 120, z: -44 },
+      pos: { x: 140, z: -50 },
       radius: 10,
       text: 'Tom Bombadil came at Frodo\'s cry, singing:\n"Tom Bombadil, Tom Bombadillo! By water, wood and hill, by the reed and willow, by fire, sun and moon, harken now and hear us! Come, Tom Bombadil, for our need is near us!"\nThe wight fled; the barrow-door yawned open into pale sunlight.',
       cite: 'The Fellowship of the Ring, Ch. 8',
@@ -158,7 +173,7 @@ const BarrowDowns = {
   // ── Transitions ───────────────────────────────────────────
   transitions: [
     {
-      trigger: { x: 150, z: -36, radius: 12 },
+      trigger: { x: 152, z: -44, radius: 12 },
       to: 'weathertop',
       arrivalOffset: { x: 0, z: 8 },
     },
@@ -170,299 +185,353 @@ const BarrowDowns = {
     const refs = {
       fireLight: null,
       fireFill:  null,
-      flames:    [],
+      flames:    [],   // mist wisps stored here
       embers:    [],
-      wightGlow: [],  // cold blue grave-lights on barrow crests
+      wightGlow: [],   // { light, phase } — lights only, no mesh
     };
 
-    // ── Helper: random range ──
     function rr(min, max) { return min + Math.random() * (max - min); }
-
-    // ── Materials ─────────────────────────────────────────────
-    // Ancient stone — greenish lichen on cold grey
-    const MAT_BARROW_STONE = new THREE.MeshLambertMaterial({ color: 0x3a3d36 });
-    const MAT_CAPSTONE     = new THREE.MeshLambertMaterial({ color: 0x2e3028 });
-    const MAT_LICHEN       = new THREE.MeshLambertMaterial({ color: 0x3d4a2e });
-    const MAT_BONE         = new THREE.MeshLambertMaterial({ color: 0xb0a88a });
-    // Ghostly wisp material (additive-ish cold blue, but Lambert available)
-    const MAT_WIGHT_GLOW   = new THREE.MeshLambertMaterial({
-      color:       0x6aaccc,
-      transparent: true,
-      opacity:     0.55,
-    });
-    const MAT_MIST_WISP    = new THREE.MeshLambertMaterial({
-      color:       0x8ab4c8,
-      transparent: true,
-      opacity:     0.18,
-    });
-
-    // ── Utility: add to scene ─────────────────────────────────
     function add(mesh) { scene.add(mesh); return mesh; }
 
+    // ── Materials ─────────────────────────────────────────────
+    const MAT_BARROW_STONE = new THREE.MeshLambertMaterial({ color: 0x3a3d36 });
+    const MAT_CAPSTONE     = new THREE.MeshLambertMaterial({ color: 0x2a2d22 });
+    const MAT_LICHEN       = new THREE.MeshLambertMaterial({ color: 0x3a4828 });
+    const MAT_CAVE_WALL    = new THREE.MeshLambertMaterial({ color: 0x1e2018 });
+    const MAT_BONE         = new THREE.MeshLambertMaterial({ color: 0xb0a88a });
+    const MAT_LOG          = new THREE.MeshLambertMaterial({ color: 0x3a2a1a });
+    const MAT_BARK         = new THREE.MeshLambertMaterial({ color: 0x2e2010 });
+    const MAT_EMBER_COAL   = new THREE.MeshLambertMaterial({ color: 0x1a0a00 });
+    const MAT_MIST_WISP    = new THREE.MeshLambertMaterial({
+      color: 0x7aaabb, transparent: true, opacity: 0.15,
+    });
+
     // ── Build a single barrow ─────────────────────────────────
-    // A barrow: earthen mound (skipped — terrain handles mounds) +
-    //   upright standing stones (orthostats) + capstone + surrounding
-    //   ring of smaller marker stones.
-    function buildBarrow(cx, cz, scale) {
+    // Each barrow = standing stones on the hilltop crown
+    //             + cave entrance cut into the hillside
+    //             + scattered rubble
+    // The hill mound itself is the terrain — we dress its surface.
+    function buildBarrow(cx, cz, scale, hasCave) {
       const gy = groundY(cx, cz);
 
-      // Upright orthostats — tall thin slabs ringing the burial chamber
-      const orthoCount = Math.floor(rr(4, 7));
-      const ringR = scale * 2.2;
+      // --- Standing stones: ring of upright orthostats ---
+      // These mark the crown and line up with the buried king below
+      const orthoCount = Math.floor(rr(5, 9));
+      const ringR = scale * 3.0;
       for (let i = 0; i < orthoCount; i++) {
-        const angle = (i / orthoCount) * Math.PI * 2 + rr(-0.2, 0.2);
-        const ox = cx + Math.cos(angle) * ringR * rr(0.8, 1.1);
-        const oz = cz + Math.sin(angle) * ringR * rr(0.8, 1.1);
-        const h  = scale * rr(1.8, 3.2);
-        const rTop = scale * rr(0.18, 0.28);
-        const rBot = scale * rr(0.22, 0.38);
-        const geo = new THREE.CylinderGeometry(rTop, rBot, h, 9);
-        // random lean
-        const slab = new THREE.Mesh(geo, rr(0,1) > 0.4 ? MAT_BARROW_STONE : MAT.STONE_MOSS);
-        const oY = groundY(ox, oz);
+        const angle = (i / orthoCount) * Math.PI * 2 + rr(-0.15, 0.15);
+        const ox = cx + Math.cos(angle) * ringR * rr(0.85, 1.15);
+        const oz = cz + Math.sin(angle) * ringR * rr(0.85, 1.15);
+        const h  = scale * rr(2.2, 4.0);
+        const rTop = scale * rr(0.16, 0.26);
+        const rBot = scale * rr(0.24, 0.40);
+        const geo  = new THREE.CylinderGeometry(rTop, rBot, h, 9);
+        const mat  = rr(0,1) > 0.4 ? MAT_BARROW_STONE : MAT.STONE_MOSS;
+        const slab = new THREE.Mesh(geo, mat);
+        const oY   = groundY(ox, oz);
         slab.position.set(ox, oY + h / 2 - h * 0.25, oz);
-        slab.rotation.set(rr(-0.08, 0.08), rr(0, Math.PI * 2), rr(-0.06, 0.06));
+        slab.rotation.set(rr(-0.12, 0.12), rr(0, Math.PI * 2), rr(-0.08, 0.08));
         add(slab);
+
+        // Occasional fallen stone — lying flat
+        if (rr(0,1) > 0.65) {
+          const fh  = scale * rr(1.5, 2.8);
+          const fGeo = new THREE.CylinderGeometry(scale*0.18, scale*0.26, fh, 9);
+          const fallen = new THREE.Mesh(fGeo, MAT.STONE_DARK);
+          const fY = groundY(ox + rr(-1,1), oz + rr(-1,1));
+          fallen.position.set(ox + rr(-0.8, 0.8), fY + scale * 0.28, oz + rr(-0.8, 0.8));
+          fallen.rotation.set(Math.PI / 2 + rr(-0.2,0.2), rr(0, Math.PI*2), rr(-0.15, 0.15));
+          add(fallen);
+        }
       }
 
-      // Capstone — wide flat slab across the top of two uprights
-      const capW = scale * rr(1.6, 2.4);
-      const capH = scale * rr(0.22, 0.38);
-      const capD = scale * rr(0.9, 1.4);
-      const capGeo = new THREE.CylinderGeometry(capW * 0.5, capW * 0.48, capH, 9);
+      // Capstone slab — laid flat across the centre of the ring
+      const capW = scale * rr(2.0, 3.2);
+      const capH = scale * rr(0.25, 0.45);
+      const capGeo = new THREE.CylinderGeometry(capW * 0.52, capW * 0.48, capH, 9);
       const cap = new THREE.Mesh(capGeo, MAT_CAPSTONE);
-      cap.rotation.set(rr(-0.04, 0.04), rr(0, Math.PI), rr(-0.03, 0.03));
-      cap.scale.z = capD / capW;
-      cap.position.set(
-        cx + rr(-0.3, 0.3),
-        gy + scale * 1.8 + capH * 0.25,
-        cz + rr(-0.3, 0.3)
-      );
+      cap.rotation.set(rr(-0.03,0.03), rr(0,Math.PI), rr(-0.02,0.02));
+      cap.scale.z = rr(0.55, 0.80); // flatten into a slab shape
+      cap.position.set(cx + rr(-0.4,0.4), gy + capH * 0.6, cz + rr(-0.4,0.4));
       add(cap);
 
-      // Lintel doorway — two flanking uprights + one crosspiece, off-axis
-      const doorAngle = rr(0, Math.PI * 2);
-      const doorDist  = scale * 1.0;
-      const doorH     = scale * rr(1.2, 1.8);
-      for (let side = -1; side <= 1; side += 2) {
-        const dpx = cx + Math.cos(doorAngle + side * 0.3) * doorDist;
-        const dpz = cz + Math.sin(doorAngle + side * 0.3) * doorDist;
-        const dpy = groundY(dpx, dpz);
-        const dGeo = new THREE.CylinderGeometry(scale * 0.14, scale * 0.18, doorH, 9);
-        const dSlab = new THREE.Mesh(dGeo, MAT.STONE_DARK);
-        dSlab.position.set(dpx, dpy + doorH / 2 - doorH * 0.25, dpz);
-        add(dSlab);
+      // --- Cave entrance cut into the hillside ---
+      // Placed on the downhill face of the barrow mound, 4-6 u from centre
+      if (hasCave) {
+        // Slope direction: find the low side by sampling groundY around the barrow
+        // Simple: use a fixed offset toward the path (roughly south/toward origin)
+        const caveAngle = Math.atan2(0 - cz, 0 - cx) + rr(-0.5, 0.5);
+        const caveDist  = scale * 4.5;
+        const entX = cx + Math.cos(caveAngle) * caveDist;
+        const entZ = cz + Math.sin(caveAngle) * caveDist;
+        const entY = groundY(entX, entZ);
+
+        // Door jamb: two upright slabs flanking the opening
+        const doorH  = scale * rr(1.8, 2.6);
+        const doorW  = scale * rr(0.6, 0.9);
+        const perpA  = caveAngle + Math.PI / 2;
+        for (let side = -1; side <= 1; side += 2) {
+          const jx = entX + Math.cos(perpA) * side * doorW;
+          const jz = entZ + Math.sin(perpA) * side * doorW;
+          const jY = groundY(jx, jz);
+          const jGeo = new THREE.CylinderGeometry(scale*0.16, scale*0.22, doorH, 9);
+          const jamb  = new THREE.Mesh(jGeo, MAT.STONE_DARK);
+          jamb.position.set(jx, jY + doorH/2 - doorH*0.25, jz);
+          jamb.rotation.set(rr(-0.05,0.05), caveAngle + rr(-0.1,0.1), rr(-0.04,0.04));
+          add(jamb);
+        }
+
+        // Lintel across the top
+        const lintW = doorW * 2.4 * scale;
+        const lintH = scale * 0.28;
+        const lintGeo = new THREE.CylinderGeometry(lintW*0.5, lintW*0.48, lintH, 9);
+        const lintel  = new THREE.Mesh(lintGeo, MAT_CAPSTONE);
+        lintel.rotation.set(Math.PI/2 + rr(-0.05,0.05), caveAngle, rr(-0.03,0.03));
+        lintel.position.set(entX, entY + doorH * 0.72, entZ);
+        add(lintel);
+
+        // Cave mouth — a dark inset hemisphere suggesting depth
+        const mouthR = scale * rr(0.7, 1.0);
+        const mGeo   = new THREE.SphereGeometry(mouthR, 10, 7);
+        const mouth  = new THREE.Mesh(mGeo, MAT_CAVE_WALL);
+        // Push it into the hillside so only the dark front face shows
+        mouth.position.set(
+          entX + Math.cos(caveAngle + Math.PI) * mouthR * 0.5,
+          entY + mouthR * 0.55,
+          entZ + Math.sin(caveAngle + Math.PI) * mouthR * 0.5
+        );
+        add(mouth);
+
+        // Wight glow: a point light inside the cave — cold blue seeping from the dark
+        const wLight = new THREE.PointLight(0x3399bb, 0.7, scale * 9);
+        wLight.position.set(
+          entX + Math.cos(caveAngle + Math.PI) * mouthR * 1.2,
+          entY + mouthR * 0.8,
+          entZ + Math.sin(caveAngle + Math.PI) * mouthR * 1.2
+        );
+        scene.add(wLight);
+        refs.wightGlow.push({ light: wLight, baseIntensity: 0.7, phase: rr(0, Math.PI*2) });
+
+        // Heap of rubble around the entrance — collapsed ancient stonework
+        for (let r2 = 0; r2 < 6; r2++) {
+          const rox = entX + rr(-scale*1.8, scale*1.8);
+          const roz = entZ + rr(-scale*1.2, scale*1.8);
+          const rs  = rr(0.14, scale * 0.5);
+          const rGeo = new THREE.SphereGeometry(rs, 8, 6);
+          const rubble = new THREE.Mesh(rGeo, rr(0,1)>0.5 ? MAT_BARROW_STONE : MAT_LICHEN);
+          const rY = groundY(rox, roz);
+          rubble.position.set(rox, rY + rs*0.45, roz);
+          rubble.scale.set(rr(0.6,1.6), rr(0.3,0.7), rr(0.6,1.6));
+          add(rubble);
+        }
       }
 
-      // Scatter ring of small marker stones around mound base
-      const markerCount = Math.floor(rr(5, 10));
-      const markerR = scale * rr(3.5, 5.0);
+      // Outer ring of small marker stones around the mound base
+      const markerCount = Math.floor(rr(6, 12));
+      const markerR = scale * rr(4.5, 6.5);
       for (let i = 0; i < markerCount; i++) {
-        const mAngle = (i / markerCount) * Math.PI * 2 + rr(-0.4, 0.4);
-        const mx = cx + Math.cos(mAngle) * markerR * rr(0.7, 1.3);
-        const mz = cz + Math.sin(mAngle) * markerR * rr(0.7, 1.3);
-        const ms = rr(0.15, 0.5);
+        const mAngle = (i / markerCount) * Math.PI * 2 + rr(-0.5, 0.5);
+        const mx = cx + Math.cos(mAngle) * markerR * rr(0.75, 1.25);
+        const mz = cz + Math.sin(mAngle) * markerR * rr(0.75, 1.25);
+        const ms = rr(0.18, 0.55);
         const mGeo = new THREE.SphereGeometry(ms, 8, 6);
         const marker = new THREE.Mesh(mGeo, rr(0,1)>0.5 ? MAT_LICHEN : MAT_BARROW_STONE);
         const mY = groundY(mx, mz);
-        marker.position.set(mx, mY + ms * 0.45, mz);
-        marker.scale.set(rr(0.6,1.4), rr(0.5,1.0), rr(0.6,1.4));
+        marker.position.set(mx, mY + ms*0.45, mz);
+        marker.scale.set(rr(0.5,1.5), rr(0.4,0.9), rr(0.5,1.5));
         add(marker);
       }
-
-      // Barrow-wight cold glow — a dim sphere hovering just above the capstone
-      const glowGeo  = new THREE.SphereGeometry(scale * 0.35, 8, 6);
-      const glowMesh = new THREE.Mesh(glowGeo, MAT_WIGHT_GLOW);
-      glowMesh.position.set(cx, gy + scale * 2.5, cz);
-      add(glowMesh);
-      refs.wightGlow.push({ mesh: glowMesh, baseY: gy + scale * 2.5, phase: rr(0, Math.PI * 2) });
-
-      // Point light — cold blue, weak, intimate range
-      const wLight = new THREE.PointLight(0x4488aa, 0.6, scale * 12);
-      wLight.position.set(cx, gy + scale * 2.8, cz);
-      scene.add(wLight);
-      refs.wightGlow.push({ light: wLight, baseY: gy + scale * 2.8, phase: rr(0, Math.PI * 2) });
     }
 
-    // ── Barrow placement ──────────────────────────────────────
-    // Scattered across the downs — clusters on hill crowns, stragglers between
+    // ── Barrow placement — 8 meaningful barrows ───────────────
+    // Fewer, larger, each with a named character.
+    // hasCave=true on the ones the player will actually walk near.
     const barrowDefs = [
-      // [cx, cz, scale]  — placed to flank the player path
-      [-20, -35, 1.4],   // west cluster
-      [-28, -22, 1.1],
-      [-12, -50, 1.6],   // large barrow, main hill
-      [ 10, -55, 1.0],
-      [ 24, -38, 1.3],
-      [ 38, -60, 1.5],
-      [ 50, -45, 1.2],
-      [ 48, -28, 0.9],   // path-side warning stone
-      [ 62, -68, 1.7],   // great barrow, far hill
-      [ 75, -52, 1.1],
-      [ 80, -38, 0.8],
-      [ 88, -70, 1.4],
-      [100, -55, 1.3],
-      [112, -65, 1.6],
-      [125, -50, 1.0],
-      [130, -78, 1.8],   // the Great Barrow — largest
-      [145, -60, 1.2],
-      // Scattered outliers
-      [-35, -60, 0.8],
-      [ 55, -80, 0.9],
-      [ 95, -82, 1.1],
+      // [cx,   cz,  scale, hasCave]
+      [ -22,  -45,   1.5,  true ],   // The First Mound — west sentinel
+      [  18,  -60,   1.3,  true ],   // The Mound of Cardolan's Last King
+      [  50,  -50,   1.6,  true ],   // The Great Barrow — where the hobbits were taken
+      [  74,  -75,   1.2,  false],   // Far north mound, path skirts it
+      [  98,  -48,   1.4,  true ],   // Mid-downs barrow, right of path
+      [ 120,  -70,   1.1,  false],   // Deep barrow, off-path
+      [ 138,  -55,   1.7,  true ],   // The Easternmost Barrow — near transition
+      [  30,  -88,   1.0,  false],   // Outlier — distant on southern ridge
     ];
 
-    barrowDefs.forEach(([cx, cz, s]) => buildBarrow(cx, cz, s));
+    barrowDefs.forEach(([cx, cz, s, cave]) => buildBarrow(cx, cz, s, cave));
 
-    // ── Scattered loose boulders & rubble ─────────────────────
-    // Collapsed stones from ancient barrows — everywhere
-    const boulderPositions = [];
-    for (let i = 0; i < 120; i++) {
-      const bx = rr(-140, 140);
-      const bz = rr(-140, 30);
-      boulderPositions.push([bx, bz]);
-    }
-    boulderPositions.forEach(([bx, bz]) => {
-      const s   = rr(0.12, 0.8);
+    // ── Scattered loose boulders & ancient rubble ─────────────
+    for (let i = 0; i < 90; i++) {
+      const bx = rr(-150, 160);
+      const bz = rr(-150, 20);
+      const s  = rr(0.15, 0.9);
       const geo = rr(0,1) > 0.4
-        ? new THREE.SphereGeometry(s, 10, 7)   // rounded glacial boulder
-        : new THREE.SphereGeometry(s, 8, 6);    // angular chunk
-      const mat = rr(0,1) > 0.6 ? MAT_BARROW_STONE : (rr(0,1) > 0.5 ? MAT.STONE_MOSS : MAT.STONE_DARK);
+        ? new THREE.SphereGeometry(s, 10, 7)
+        : new THREE.SphereGeometry(s, 8, 6);
+      const mat = rr(0,1) > 0.6 ? MAT_BARROW_STONE : (rr(0,1)>0.5 ? MAT.STONE_MOSS : MAT.STONE_DARK);
       const boulder = new THREE.Mesh(geo, mat);
       const bY = groundY(bx, bz);
-      boulder.position.set(bx, bY + s * 0.45, bz);
-      boulder.scale.set(rr(0.5,1.8), rr(0.4,1.0), rr(0.6,1.6));
-      boulder.rotation.y = rr(0, Math.PI * 2);
+      boulder.position.set(bx, bY + s*0.45, bz);
+      boulder.scale.set(rr(0.5,1.9), rr(0.35,0.9), rr(0.5,1.7));
+      boulder.rotation.y = rr(0, Math.PI*2);
       add(boulder);
-    });
-
-    // ── Pale dead grass tufts — vertical cylinders ─────────────
-    // Thin wisps of bone-grey grass scattered in patches
-    for (let i = 0; i < 200; i++) {
-      const tx = rr(-130, 130);
-      const tz = rr(-130, 20);
-      const th = rr(0.3, 0.9);
-      const tr = rr(0.04, 0.10);
-      const geo  = new THREE.CylinderGeometry(tr * 0.3, tr, th, 5);
-      const tuft = new THREE.Mesh(geo, MAT_BONE);
-      const tY   = groundY(tx, tz);
-      tuft.position.set(tx, tY + th / 2 - th * 0.1, tz);
-      tuft.rotation.set(rr(-0.15, 0.15), rr(0, Math.PI*2), rr(-0.15, 0.15));
-      add(tuft);
     }
 
-    // ── Mist wisps — low-drifting translucent spheres ──────────
-    // Hover a metre above ground, animate in onFrame
-    const wispCount = 40;
-    for (let i = 0; i < wispCount; i++) {
-      const wx = rr(-120, 130);
-      const wz = rr(-120, 15);
-      const ws = rr(1.2, 4.5);
+    // ── Dead grass tufts — clustered patches, not random scatter ─
+    // Use noise to cluster them so they read as ground-cover zones.
+    // Placed in a grid with noise-based accept/reject — patches emerge naturally.
+    const TUFT_GRID = 3.5; // grid cell size
+    for (let gx = -130; gx < 130; gx += TUFT_GRID) {
+      for (let gz = -130; gz < 20; gz += TUFT_GRID) {
+        const jx = gx + rr(-TUFT_GRID*0.4, TUFT_GRID*0.4);
+        const jz = gz + rr(-TUFT_GRID*0.4, TUFT_GRID*0.4);
+        // Patch density: use a noise field so tufts cluster in bands
+        const density = api_noise2d(jx * 0.06 + 2.2, jz * 0.05 - 1.8);
+        if (density < 0.40) continue; // skip — this cell is bare loam or open ground
+        const th = rr(0.28, 0.75);
+        const tr = rr(0.04, 0.09);
+        const geo  = new THREE.CylinderGeometry(tr*0.25, tr, th, 5);
+        const tuft = new THREE.Mesh(geo, MAT_BONE);
+        const tY   = groundY(jx, jz);
+        tuft.position.set(jx, tY + th/2 - th*0.08, jz);
+        tuft.rotation.set(rr(-0.18,0.18), rr(0,Math.PI*2), rr(-0.18,0.18));
+        add(tuft);
+      }
+    }
+
+    // ── Mist wisps ────────────────────────────────────────────
+    for (let i = 0; i < 40; i++) {
+      const wx = rr(-130, 150);
+      const wz = rr(-130, 15);
+      const ws = rr(1.4, 5.0);
       const geo  = new THREE.SphereGeometry(ws, 8, 6);
       const wisp = new THREE.Mesh(geo, MAT_MIST_WISP.clone());
-      wisp.material.opacity = rr(0.10, 0.22);
+      wisp.material.opacity = rr(0.09, 0.20);
       const wY = groundY(wx, wz);
-      wisp.position.set(wx, wY + rr(0.4, 1.8), wz);
-      wisp.scale.set(rr(0.8, 2.0), rr(0.3, 0.7), rr(0.8, 2.0));
+      wisp.position.set(wx, wY + rr(0.3, 2.0), wz);
+      wisp.scale.set(rr(0.9, 2.2), rr(0.25, 0.55), rr(0.9, 2.2));
       add(wisp);
-      refs.flames.push({  // reuse flames slot for wisps
+      refs.flames.push({
         mesh: wisp,
-        baseX: wx, baseZ: wz, baseY: wY + rr(0.4, 1.8),
-        phase: rr(0, Math.PI * 2),
-        driftX: rr(-0.008, 0.008),
-        driftZ: rr(-0.006, 0.006),
+        baseX: wx, baseZ: wz, baseY: wY + rr(0.3, 2.0),
+        phase: rr(0, Math.PI*2),
+        driftX: rr(-0.006, 0.006),
+        driftZ: rr(-0.005, 0.005),
       });
     }
 
-    // ── A central fire — cold, low; hobbits' camp remnant ──────
-    // (Per contract, buildScene must return fireLight/fireFill/flames/embers)
-    const campX = 6, campZ = -8;
+    // ── Camp fire — hobbits' resting place before capture ─────
+    const campX = 6, campZ = -10;
     const campY = groundY(campX, campZ);
 
-    // Ember ring of small stones
-    const stoneCount = 7;
-    for (let i = 0; i < stoneCount; i++) {
-      const sa  = (i / stoneCount) * Math.PI * 2;
-      const sr  = 0.9;
-      const ssx = campX + Math.cos(sa) * sr;
-      const ssz = campZ + Math.sin(sa) * sr;
-      const ssY = groundY(ssx, ssz);
-      const sgeo = new THREE.SphereGeometry(rr(0.18, 0.30), 8, 6);
-      const ss   = new THREE.Mesh(sgeo, MAT.STONE_DARK);
-      ss.position.set(ssx, ssY + 0.18 * 0.45, ssz);
-      add(ss);
+    // Fire ring stones
+    const fireRingCount = 8;
+    for (let i = 0; i < fireRingCount; i++) {
+      const fa  = (i / fireRingCount) * Math.PI * 2;
+      const fr  = 1.1;
+      const fsx = campX + Math.cos(fa) * fr;
+      const fsz = campZ + Math.sin(fa) * fr;
+      const fsY = groundY(fsx, fsz);
+      const fsGeo = new THREE.SphereGeometry(rr(0.20, 0.34), 8, 6);
+      const fs    = new THREE.Mesh(fsGeo, MAT.STONE_DARK);
+      fs.position.set(fsx, fsY + 0.22*0.45, fsz);
+      add(fs);
     }
 
-    // Ember glow — very dim orange, barely alive
-    const fireLight = new THREE.PointLight(0xff5500, 0.35, 10);
-    fireLight.position.set(campX, campY + 0.4, campZ);
+    // Logs — two crossing cylinders, charred and partly burnt
+    const logDefs = [
+      { angle: 0.3,         len: 1.8, r: 0.10, mat: MAT_LOG  },
+      { angle: 0.3+Math.PI/2, len: 1.5, r: 0.09, mat: MAT_BARK },
+    ];
+    logDefs.forEach(({ angle, len, r: lr, mat: lmat }) => {
+      const lGeo = new THREE.CylinderGeometry(lr*0.75, lr, len, 8);
+      const log  = new THREE.Mesh(lGeo, lmat);
+      log.rotation.set(0, angle, Math.PI/2); // lay horizontal
+      log.position.set(campX + Math.cos(angle)*0.4, campY + lr*0.7, campZ + Math.sin(angle)*0.4);
+      add(log);
+
+      // Charred end nub — darkened tip
+      const endGeo = new THREE.SphereGeometry(lr*0.72, 7, 5);
+      const endNub  = new THREE.Mesh(endGeo, MAT_EMBER_COAL);
+      endNub.position.set(
+        campX + Math.cos(angle)*(0.4 + len*0.45),
+        campY + lr*0.7,
+        campZ + Math.sin(angle)*(0.4 + len*0.45)
+      );
+      add(endNub);
+    });
+
+    // Bed of coals — flat dark discs under the logs
+    for (let i = 0; i < 5; i++) {
+      const cs  = rr(0.12, 0.28);
+      const cGeo = new THREE.SphereGeometry(cs, 6, 4);
+      const coal = new THREE.Mesh(cGeo, MAT_EMBER_COAL);
+      coal.position.set(campX + rr(-0.5,0.5), campY + cs*0.25, campZ + rr(-0.5,0.5));
+      coal.scale.y = 0.3;
+      add(coal);
+    }
+
+    // Ember glow — small flickering orange sphere above the coal bed
+    const emberGeo  = new THREE.SphereGeometry(0.10, 6, 4);
+    const emberMat  = new THREE.MeshLambertMaterial({ color: 0xff5500, transparent: true, opacity: 0.85 });
+    const emberMesh = new THREE.Mesh(emberGeo, emberMat);
+    emberMesh.position.set(campX, campY + 0.15, campZ);
+    add(emberMesh);
+    refs.embers.push({ mesh: emberMesh, mat: emberMat, phase: 0 });
+
+    // Main fire light — low warm orange
+    const fireLight = new THREE.PointLight(0xff4400, 0.55, 12);
+    fireLight.position.set(campX, campY + 0.5, campZ);
     scene.add(fireLight);
     refs.fireLight = fireLight;
 
-    const fireFill = new THREE.PointLight(0xff3300, 0.12, 6);
-    fireFill.position.set(campX + 0.5, campY + 0.2, campZ - 0.3);
+    const fireFill = new THREE.PointLight(0xff2200, 0.18, 7);
+    fireFill.position.set(campX + 0.6, campY + 0.25, campZ - 0.4);
     scene.add(fireFill);
     refs.fireFill = fireFill;
-
-    // Flame mesh — just a tiny glowing nub (embers, nearly dead)
-    const emberGeo  = new THREE.SphereGeometry(0.12, 6, 4);
-    const emberMat  = new THREE.MeshLambertMaterial({ color: 0xff6600, transparent: true, opacity: 0.8 });
-    const emberMesh = new THREE.Mesh(emberGeo, emberMat);
-    emberMesh.position.set(campX, campY + 0.18, campZ);
-    add(emberMesh);
-    refs.embers.push({ mesh: emberMesh, mat: emberMat, phase: 0 });
 
     return refs;
   },
 
   // ── Per-frame animation ───────────────────────────────────
   onFrame(t, dt, refs) {
-    // Pulse wight glows and cold point lights
+    // Wight cave lights — slow pulse, occasional stutter
     if (refs.wightGlow) {
       refs.wightGlow.forEach(entry => {
-        if (!entry) return;
-        const slow = Math.sin(t * 0.55 + entry.phase);
-        const fast = Math.sin(t * 1.8  + entry.phase * 1.3) * 0.3;
-        if (entry.mesh) {
-          // gentle float + opacity flicker
-          entry.mesh.position.y = entry.baseY + slow * 0.18 + fast * 0.08;
-          if (entry.mesh.material) {
-            entry.mesh.material.opacity = 0.38 + slow * 0.14 + fast * 0.06;
-          }
-        }
-        if (entry.light) {
-          entry.light.position.y = entry.baseY + slow * 0.22;
-          entry.light.intensity  = 0.5 + slow * 0.18 + fast * 0.10;
-        }
+        if (!entry || !entry.light) return;
+        const slow = Math.sin(t * 0.45 + entry.phase);
+        const flicker = Math.sin(t * 2.3 + entry.phase * 1.7) * 0.15;
+        entry.light.intensity = entry.baseIntensity * (0.75 + slow * 0.18 + flicker);
       });
     }
 
-    // Drift mist wisps
+    // Mist wisps — slow lateral drift and vertical bob
     if (refs.flames) {
       refs.flames.forEach(wisp => {
         if (!wisp || !wisp.mesh) return;
-        const bob = Math.sin(t * 0.28 + wisp.phase) * 0.25;
-        wisp.mesh.position.x = wisp.baseX + Math.sin(t * wisp.driftX * 120 + wisp.phase) * 2.5;
-        wisp.mesh.position.z = wisp.baseZ + Math.cos(t * wisp.driftZ * 120 + wisp.phase) * 2.0;
+        const bob = Math.sin(t * 0.26 + wisp.phase) * 0.30;
+        wisp.mesh.position.x = wisp.baseX + Math.sin(t * 0.08 + wisp.phase) * 3.0;
+        wisp.mesh.position.z = wisp.baseZ + Math.cos(t * 0.06 + wisp.phase) * 2.2;
         wisp.mesh.position.y = wisp.baseY + bob;
         if (wisp.mesh.material) {
-          wisp.mesh.material.opacity = 0.10 + Math.sin(t * 0.4 + wisp.phase) * 0.07;
+          wisp.mesh.material.opacity = 0.09 + Math.sin(t * 0.35 + wisp.phase) * 0.06;
         }
       });
     }
 
-    // Ember flicker — barely alive fire
+    // Ember flicker
     if (refs.embers && refs.embers.length > 0) {
       const e = refs.embers[0];
       if (e && e.mat) {
-        e.mat.opacity = 0.5 + Math.sin(t * 3.1 + e.phase) * 0.3 + Math.sin(t * 7.3) * 0.12;
-        e.phase += dt * 0.5;
+        e.mat.opacity = 0.55 + Math.sin(t * 3.4 + e.phase) * 0.28 + Math.sin(t * 7.8) * 0.10;
+        e.phase += dt * 0.6;
       }
     }
     if (refs.fireLight) {
-      refs.fireLight.intensity = 0.28 + Math.sin(t * 2.7) * 0.10 + Math.sin(t * 5.1) * 0.05;
+      refs.fireLight.intensity = 0.42 + Math.sin(t * 2.9) * 0.10 + Math.sin(t * 5.7) * 0.06;
     }
     if (refs.fireFill) {
-      refs.fireFill.intensity  = 0.08 + Math.sin(t * 3.3 + 1.1) * 0.05;
+      refs.fireFill.intensity  = 0.12 + Math.sin(t * 3.5 + 1.2) * 0.06;
     }
   },
 };
