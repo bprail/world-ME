@@ -77,6 +77,15 @@ body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d
 }
 #lore-popup.show { opacity:1; }
 #lore-popup cite { display:block; margin-top:8px; font-size:10px; color:#5a4020; letter-spacing:1.5px; }
+#debug-panel {
+  position:fixed; top:16px; left:20px;
+  background:rgba(0,0,0,0.75); border:1px solid #2a2010;
+  color:#8a9a6a; font-family:monospace; font-size:11px;
+  line-height:1.8; padding:8px 12px; border-radius:2px;
+  pointer-events:none; display:none; white-space:pre;
+  z-index:200;
+}
+#debug-panel.visible { display:block; }
 </style>
 </head>
 <body>
@@ -87,6 +96,7 @@ body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d
   <div id="crosshair"></div>
   <div id="controls">WASD · move &nbsp;|&nbsp; QE · turn &nbsp;|&nbsp; I · invert Y</div>
   <div id="lore-popup"></div>
+  <div id="debug-panel"></div>
   <button id="invert-btn">INVERT Y: OFF</button>
 </div>
 <div id="start-overlay">
@@ -400,6 +410,15 @@ function updateInvertBtn(){
 updateInvertBtn();
 invertBtn.addEventListener('click',e=>{e.stopPropagation();invertY=!invertY;updateInvertBtn();});
 
+let debugVisible = false;
+const debugPanel = document.getElementById('debug-panel');
+let fpsFrames = 0, fpsAccum = 0, fpsDisplay = 0;
+
+function toggleDebug() {
+  debugVisible = !debugVisible;
+  debugPanel.classList.toggle('visible', debugVisible);
+}
+
 function requestLock(){document.body.requestPointerLock();}
 overlay.addEventListener('click',requestLock);
 document.getElementById('c').addEventListener('click',()=>{if(started&&!locked)requestLock();});
@@ -418,6 +437,7 @@ const keys={};
 document.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='KeyI'){invertY=!invertY;updateInvertBtn();}
+  if(e.code==='Backquote'){toggleDebug();}   // ` key — doesn't conflict with gameplay
 });
 document.addEventListener('keyup',e=>{keys[e.code]=false;});
 
@@ -540,6 +560,26 @@ function animate(){
   starsFaint.pts.rotation.y=sr; starsBright.pts.rotation.y=sr; starsTwinkle.pts.rotation.y=sr;
   starsTwinkle.mat.opacity=0.80+Math.sin(t*1.3)*0.12+Math.sin(t*2.7)*0.08;
   starsBright.mat.opacity =0.85+Math.sin(t*0.9+1.0)*0.07;
+
+  // Debug panel update
+  fpsAccum += dt;
+  fpsFrames++;
+  if(fpsAccum >= 0.5) {
+    fpsDisplay = Math.round(fpsFrames / fpsAccum);
+    fpsFrames = 0; fpsAccum = 0;
+  }
+  if(debugVisible) {
+    const p = camera.position;
+    const gnd = groundY(p.x, p.z);
+    debugPanel.textContent =
+      `FPS  ${fpsDisplay}\n` +
+      `X    ${p.x.toFixed(2)}\n` +
+      `Y    ${p.y.toFixed(2)}\n` +
+      `Z    ${p.z.toFixed(2)}\n` +
+      `GND  ${gnd.toFixed(2)}\n` +
+      `YAW  ${(player.yaw * 180/Math.PI).toFixed(1)}°\n` +
+      `LOC  ${currentLoc ? currentLoc.name : '—'}`;
+  }
 
   renderer.clear();
   renderer.render(starScene,starCamera);
