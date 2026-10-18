@@ -655,10 +655,10 @@ const Rivendell = {
     scene.add(lintel);
 
     [[20,72,3.2],[24,76,2.8],[18,66,2.5],[22,60,3.0]].forEach(([rx,rz,rh]) => {
-      const rGeo = new THREE.CylinderGeometry(0.28, 0.42, rh, 9);
-      scene.add(Object.assign(new THREE.Mesh(rGeo, matMoss), {
-        position: new THREE.Vector3(rx, groundY(rx, rz) + rh/2 - rh*0.25, rz)
-      }));
+      const rGeo  = new THREE.CylinderGeometry(0.28, 0.42, rh, 9);
+      const rMesh = new THREE.Mesh(rGeo, matMoss);
+      rMesh.position.set(rx, groundY(rx, rz) + rh/2 - rh*0.25, rz);
+      scene.add(rMesh);
     });
 
     // =====================================================
