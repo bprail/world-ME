@@ -130,26 +130,61 @@ body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-<!-- Location modules — add new ones here, each sets window.LocationName -->
-<script src="weathertop.js"></script>
-<script src="loc_barrowdowns.js"></script>
-<script src="rivendell.js"></script>
-<!-- <script src="bree.js"></script> -->
+<!-- Location manifest — edit locations.js to add/remove locations.
+     world.html never needs to change for new locations. -->
+<script src="locations.js"></script>
 
 <script>
 'use strict';
 
-// ── LOCATION REGISTRY ────────────────────────────────────────────────────────
-// key → the global object set by each location's script file.
-// Transition definitions only use the key; the destination owns all arrival data.
-const LOCATIONS = {
-  weathertop:  window.Weathertop,
-  barrowdowns: window.BarrowDowns,
-  rivendell:   window.Rivendell,
-  // bree:     window.Bree,
-};
+// LOCATION_MANIFEST is defined in locations.js.
 
 const START_LOCATION = location.hash.slice(1) || 'weathertop';
+
+// ── DYNAMIC MODULE LOADER ─────────────────────────────────────────────────────
+// Loads a location's JS file on demand by injecting a <script> tag.
+// Resolves with the module object once the file has executed and set window.X.
+// Already-loaded modules are returned from cache — instant on revisit.
+const _moduleCache = {};
+
+function loadLocationModule(key){
+  return new Promise((resolve, reject) => {
+    // Cache hit — already loaded this session
+    if(_moduleCache[key]){
+      resolve(_moduleCache[key]);
+      return;
+    }
+    const entry = LOCATION_MANIFEST[key];
+    if(!entry){
+      reject(new Error('Unknown location key: ' + key));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = entry.src;
+    script.onload = () => {
+      const mod = window[entry.global];
+      if(!mod){
+        reject(new Error(entry.src + ' loaded but did not set window.' + entry.global));
+        return;
+      }
+      _moduleCache[key] = mod;
+      resolve(mod);
+    };
+    script.onerror = () => reject(new Error('Failed to load script: ' + entry.src));
+    document.head.appendChild(script);
+  });
+}
+
+// Pre-load adjacent locations silently in the background after the current
+// one is ready, so transitions feel instant for linear play.
+function preloadAdjacent(locMod){
+  if(!locMod.transitions) return;
+  setTimeout(()=>{
+    for(const tr of locMod.transitions){
+      if(!_moduleCache[tr.to]) loadLocationModule(tr.to).catch(()=>{});
+    }
+  }, 2000); // 2s delay — don't compete with current location's build
+}
 
 // ── RENDERER ─────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({
@@ -302,10 +337,12 @@ const MAT = {
 };
 
 // ── LOAD LOCATION ─────────────────────────────────────────────────────────────
-// arrivalPos: {x,z,yaw} from the destination's arrivals table, or null for start.
-function loadLocation(locName, arrivalPos){
-  const loc = LOCATIONS[locName];
-  if(!loc){ console.error('Unknown location:', locName); return; }
+// mod:        the already-loaded location module object
+// locName:    its registry key string
+// arrivalPos: {x,z,yaw} from the destination's arrivals table, or null for start
+function loadLocation(locName, mod, arrivalPos){
+  const loc = mod;
+  if(!loc){ console.error('loadLocation called with null module:', locName); return; }
 
   // Teardown
   for(const obj of locObjects) scene.remove(obj);
@@ -433,6 +470,7 @@ function loadLocation(locName, arrivalPos){
   currentLoc      = loc;
   currentLocKey   = locName;
   currentWalkables= loc.walkables || [];
+  preloadAdjacent(loc); // silently pre-load neighbouring locations
 
   // Reset lore state
   activeLore=-1;
@@ -459,29 +497,36 @@ function triggerTransition(toKey){
   if(transitioning) return;
   transitioning=true;
 
-  // Clear all movement keys so player doesn't keep moving into new location
+  // Clear all movement so player doesn't drift into the new location
   Object.keys(keys).forEach(k=>keys[k]=false);
 
   transOverlay.classList.add('fade');
-  setTimeout(()=>{
-    const destLoc=LOCATIONS[toKey];
-    if(!destLoc){ console.error('Transition target unknown:',toKey); transitioning=false; return; }
 
-    // Look up arrival position — destination defines where you appear based on source
-    const arrival = (destLoc.arrivals && destLoc.arrivals[currentLocKey])
-      ? destLoc.arrivals[currentLocKey]
-      : null; // null → loadLocation uses loc.start
+  // Load the destination module (instant if pre-cached, otherwise fetches during fade)
+  const fromKey = currentLocKey;
+  loadLocationModule(toKey).then(mod => {
+    // Destination owns arrival position, keyed by source location
+    const arrival = (mod.arrivals && mod.arrivals[fromKey])
+      ? mod.arrivals[fromKey]
+      : null; // null → loadLocation falls back to mod.start
 
-    loadLocation(toKey, arrival);
-    showLocation();
-    setTimeout(()=>{ transOverlay.classList.remove('fade'); transitioning=false; }, 800);
-  }, 800);
+    // Wait for fade to complete (800ms) before swapping scene
+    setTimeout(()=>{
+      loadLocation(toKey, mod, arrival);
+      showLocation();
+      setTimeout(()=>{ transOverlay.classList.remove('fade'); transitioning=false; }, 800);
+    }, 800);
+  }).catch(err=>{
+    console.error('Transition failed:', err);
+    transitioning=false;
+    transOverlay.classList.remove('fade');
+  });
 }
 
 function checkTransitions(pos){
   if(!currentLoc||!currentLoc.transitions||transitioning) return;
   for(const tr of currentLoc.transitions){
-    if(!LOCATIONS[tr.to]) continue; // module not loaded
+    if(!LOCATION_MANIFEST[tr.to]) continue; // not in manifest — skip
     const dx=pos.x-tr.trigger.x, dz=pos.z-tr.trigger.z;
     if(Math.sqrt(dx*dx+dz*dz)<tr.trigger.radius){
       triggerTransition(tr.to);
@@ -701,8 +746,14 @@ function animate(){
 }
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
-loadLocation(START_LOCATION);
-animate();
+// Load only the starting location's script — everything else loads on demand.
+loadLocationModule(START_LOCATION).then(mod => {
+  loadLocation(START_LOCATION, mod, null);
+  animate();
+}).catch(err => {
+  console.error('Failed to load starting location:', err);
+  document.getElementById('start-loc-name').textContent = 'Error loading location — see console';
+});
 </script>
 </body>
 </html>
