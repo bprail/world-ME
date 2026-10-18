@@ -14,6 +14,7 @@ const LOCATION_MANIFEST = {
   weathertop:  { src:'weathertop.js',      global:'Weathertop'  },
   barrowdowns: { src:'loc_barrowdowns.js', global:'BarrowDowns' },
   rivendell:   { src:'rivendell.js',       global:'Rivendell'   },
+  eregion:     { src:'eregion.js',         global:'Eregion'     },
   // bree:     { src:'bree.js',            global:'Bree'        },
   // shire:    { src:'shire.js',           global:'Shire'       },
   // moria:    { src:'moria.js',           global:'Moria'       },
