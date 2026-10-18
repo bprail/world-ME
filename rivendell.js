@@ -1,19 +1,20 @@
 // =============================================================
 //  rivendell.js  —  The Last Homely House East of the Sea
-//  v4 fixes:
-//   - start: {} added for debug
-//   - Stream: smooth water surface (linear waterY), no boulders
-//   - East end: hard bend + mist, no rising terrain
-//   - Waterfall: PlaneGeometry laid FLAT on chute, not vertical
-//   - Bridge: gentle arc deck following arch crown
+//  v5 fixes:
+//   - Valley bends at z=65 (coord rotation), mist at bend mouth
+//   - Stream water level below banks; boxes have correct depth
+//   - Waterfall planes drape along slope (correct tilt axis)
+//   - Bridge: gentle 3-segment arc, walkables[], no big pillars
+//   - Path: stays east of stream, crosses bridge at x=1,z=0
+//   - Halls: 32% up west hillside on carved shelf
+//   - Yaw: 0 (facing into valley, toward -Z)
 // =============================================================
 
 const Rivendell = {
   name:     'Rivendell',
   subtitle: 'Imladris · The Last Homely House',
 
-  // Debug start position (arrival from Weathertop)
-  start: { x: 22, z: 90, yaw: Math.PI },
+  start: { x: 22, z: 90, yaw: 0 },
 
   atmosphere: {
     fogType:         'linear',
@@ -36,61 +37,88 @@ const Rivendell = {
   // -----------------------------------------------------------
   //  TERRAIN
   //
-  //  Valley floor ≈ y -38.  Rim ≈ y +20.  Total depth ≈ 58 u.
-  //  Stream channel at x=1, cut 4 units below floor.
-  //  West cliff (box-canyon end-wall) quadratic lift from z=-88.
-  //  East ridge: REMOVED — replaced with hard bend + mist.
-  //    The valley floor stays FLAT at z > 60 (no rise), and
-  //    the stream bends sharply north (negative X) at z ≈ 65.
-  //    A thick mist bank at z ≈ 80 obscures the open end.
-  //    The boundary (150) stops the player from reaching the bend corner.
+  //  The valley runs along Z from z=65 (bend) westward to z=-90
+  //  (waterfall cliff). East of z=65 the valley bends ~70° and
+  //  is obscured by mist — the player arrives from that bend.
+  //
+  //  Bend implementation: for z > BEND_Z, rotate the sample
+  //  coordinate around (0, BEND_Z) before computing walls.
+  //  This makes the valley walls physically turn, not just the
+  //  stream. A closing wall builds up at the bend mouth.
+  //
+  //  Elven halls shelf: a shallow plateau carved into the west
+  //  wall at x≈-20, z≈-55 by suppressing the valley-wall term
+  //  locally. groundY() will return a flat-ish ledge there.
   // -----------------------------------------------------------
+
   hillHeight(x, z) {
     const noise = api_fbm;
     const n2    = api_noise2d;
 
-    // Valley walls — cubic, flat floor to |x|=10, then steep
-    const vAbs   = Math.abs(x);
+    const BEND_Z  = 65;
+    const BEND_ANG = 65 * Math.PI / 180;  // 65° bend, valley continues NW
+
+    // --- Coordinate bend ---
+    // For z > BEND_Z, rotate sample point around (0, BEND_Z).
+    // The original valley straight section stays unchanged below BEND_Z.
+    let sx = x, sz = z;
+    let pastBend = false;
+    if (z > BEND_Z) {
+      pastBend = true;
+      const dz  = z - BEND_Z;
+      // Rotate (x, dz) by BEND_ANG in the XZ plane
+      sx = x * Math.cos(BEND_ANG) - dz * Math.sin(BEND_ANG);
+      sz = x * Math.sin(BEND_ANG) + dz * Math.cos(BEND_ANG) + BEND_Z;
+    }
+
+    // --- Valley walls in (possibly rotated) space ---
+    const vAbs   = Math.abs(sx);
     const vFloor = Math.max(0, vAbs - 10);
     const valley = Math.min(vFloor * vFloor * vFloor * 0.018, 60);
 
-    // East end: NO rising terrain — valley floor stays flat.
-    // Instead the path bends; mist conceals the open end.
-    // Small entry bank just marks the arrival point (very gentle)
-    const entryBank = Math.max(0, (z - 80) * 0.08);  // very slight, just context
+    // Bend mouth closing wall: terrain rises quickly beyond BEND_Z
+    // to block the straight-ahead view. Scaled by how far past the bend.
+    const bendWall = pastBend
+      ? Math.min(Math.max(0, (z - BEND_Z - 5) * 1.2), 55)
+      : 0;
 
-    // West cliff — quadratic lift of entire cross-section from z=-88
+    // West cliff end-wall (box-canyon head at waterfall)
     const westT     = Math.max(0, -z - 88);
     const westCliff = Math.min(westT * westT * 0.22, 65);
 
-    // Valley narrows toward west end
+    // Valley narrows toward west
     const narrowFac  = Math.max(0, Math.min(1, (-z - 65) / 30));
     const narrowedW  = 10 - narrowFac * 5;
     const narrowDist = Math.max(0, vAbs - narrowedW);
     const narrowWall = Math.min(narrowDist * narrowDist * 0.12, 40) * narrowFac;
 
-    // Gentle floor tilt — water flows west
+    // Gentle floor tilt (water flows west)
     const floorTilt = z * 0.03;
 
-    // Stream channel: runs along x=1 for z in [-85, 65],
-    // then bends toward negative-X for z > 65
-    let streamCx = 1;
-    if (z > 65) {
-      // Bend: stream curves from x=1 at z=65 toward x=-8 at z=90
-      const bt = Math.min(1, (z - 65) / 25);
-      streamCx = 1 - bt * 9;
-    } else {
-      // Gentle meander in main valley
-      streamCx = 1 + Math.sin(z * 0.05) * 1.2;
-    }
-    const sDist     = Math.abs(x - streamCx);
-    const streamCut = Math.max(0, (4.0 - sDist) * 1.1);
+    // --- Stream channel cut ---
+    // Stream centreline: straight at x=1+meander for z <= BEND_Z
+    // past bend it curves with the rotated coords (handled by terrain naturally)
+    const streamCx = 1 + Math.sin(z * 0.05) * 1.2;
+    const sDist    = Math.abs(x - streamCx);
+    const streamCut = Math.max(0, (3.8 - sDist) * 1.05);
 
+    // --- Elven halls SHELF ---
+    // Suppress the valley-wall rise in a small patch on the west wall:
+    // centred at (x≈-20, z≈-55), radius≈12 in ZX space.
+    // This flattens the slope locally, creating a ledge.
+    const shelfCX = -22, shelfCZ = -55, shelfR = 12;
+    const shelfDist = Math.sqrt((x - shelfCX)**2 + (z - shelfCZ)**2);
+    const shelfFac  = Math.max(0, 1 - shelfDist / shelfR);
+    // Shelf target height: 30% of the way up the wall at that point ≈ -22
+    // Suppress valley term by shelfFac: reduces the wall height there
+    const valleyShelfed = valley * (1 - shelfFac * 0.68);
+
+    // --- Surface detail ---
     const detail = noise(x * 0.07, z * 0.07) * 2.2
                  + n2(x * 0.2,  z * 0.2)  * 0.8;
 
     const base = -38 + floorTilt + detail;
-    return base + valley + narrowWall + entryBank + westCliff - streamCut;
+    return base + valleyShelfed + narrowWall + bendWall + westCliff - streamCut;
   },
 
   vertexColor(vx, vy, vz, noise2d, lerp) {
@@ -99,32 +127,29 @@ const Rivendell = {
     const gold  = Math.max(0, goldN - 0.3) * 1.9;
     const rockN = noise2d(vx * 0.12, vz * 0.09);
 
-    let streamCx = 1;
-    if (vz > 65) {
-      const bt = Math.min(1, (vz - 65) / 25);
-      streamCx = 1 - bt * 9;
-    } else {
-      streamCx = 1 + Math.sin(vz * 0.05) * 1.2;
-    }
+    const streamCx   = 1 + Math.sin(vz * 0.05) * 1.2;
     const sDist      = Math.abs(vx - streamCx);
     const streamProx = Math.max(0, 1 - sDist / 5.5);
     const cliffFac   = Math.max(0, Math.min(1, (-vz - 80) / 25));
 
-    const r0 = lerp(0.25, 0.52, gold);
-    const g0 = lerp(0.50, 0.50, gold);
+    // Shelf area: greener, flatter-looking (less rock)
+    const shelfDist = Math.sqrt((vx + 20)**2 + (vz + 55)**2);
+    const shelfGreen = Math.max(0, 1 - shelfDist / 12) * 0.4;
+
+    const r0 = lerp(0.25, 0.52, gold + shelfGreen * 0.3);
+    const g0 = lerp(0.50, 0.54, gold + shelfGreen);
     const b0 = lerp(0.16, 0.20, gold);
     const r1 = 0.48 + rockN * 0.10;
     const g1 = 0.46 + rockN * 0.07;
     const b1 = 0.42;
 
-    let r = lerp(r0, r1, heightFrac);
-    let g = lerp(g0, g1, heightFrac);
+    let r = lerp(r0, r1, heightFrac * (1 - shelfGreen));
+    let g = lerp(g0, g1, heightFrac * (1 - shelfGreen));
     let b = lerp(b0, b1, heightFrac);
 
-    const cb = cliffFac * heightFrac;
-    r = lerp(r, 0.72, cb * 0.85);
-    g = lerp(g, 0.70, cb * 0.85);
-    b = lerp(b, 0.66, cb * 0.85);
+    r = lerp(r, 0.72, cliffFac * heightFrac * 0.85);
+    g = lerp(g, 0.70, cliffFac * heightFrac * 0.85);
+    b = lerp(b, 0.66, cliffFac * heightFrac * 0.85);
 
     r = lerp(r, 0.16, streamProx * 0.55);
     g = lerp(g, 0.19, streamProx * 0.55);
@@ -133,51 +158,58 @@ const Rivendell = {
     return [r, g, b];
   },
 
+  // -----------------------------------------------------------
+  //  PATH  — stays east (high-x) of stream until bridge
+  //  Bridge at x=1, z=0. Path approaches along x=7..5 east bank,
+  //  then steps across to x=1 at z=4, crosses, continues west.
+  // -----------------------------------------------------------
   onPath(x, z) {
-    // Descent from arrival point down into valley (gentle — no big ridge now)
+    // Descent from arrival into bent valley section
     if (z > 65) {
-      const t  = Math.max(0, Math.min(1, (z - 65) / 25));
-      const cx = api_lerp(8, 22, t);
+      const t  = Math.max(0, Math.min(1, (z - 65) / 28));
+      const cx = api_lerp(14, 20, t);
       return Math.max(0, 1 - Math.abs(x - cx) / 5);
     }
-    if (z > 22) {
-      const t  = Math.max(0, Math.min(1, (z - 22) / 43));
-      const cx = api_lerp(8, 15, t);
+    // Valley floor — east bank, well clear of stream (stream cx ≈ 1..2, path at x=7)
+    if (z > 4) {
+      const t  = Math.max(0, Math.min(1, (z - 4) / 61));
+      const cx = api_lerp(7, 14, t);
+      return Math.max(0, 1 - Math.abs(x - cx) / 4.5);
+    }
+    // Bridge crossing — path narrows to bridge centreline x=1
+    if (z >= -4) {
+      return Math.max(0, 1 - Math.abs(x - 1) / 3.5);
+    }
+    // West of bridge toward halls on hillside (x drifts toward -18)
+    if (z >= -70) {
+      const t  = Math.max(0, Math.min(1, (-z - 4) / 66));
+      const cx = api_lerp(-14, 1, 1 - t);
       return Math.max(0, 1 - Math.abs(x - cx) / 5);
-    }
-    // Valley floor east bank to bridge
-    if (z >= -5) {
-      const cx = api_lerp(1, 8, (z + 5) / 27);
-      return Math.max(0, 1 - Math.abs(x - cx) / 4.5);
-    }
-    // West of bridge toward halls
-    if (z >= -78) {
-      const cx = api_lerp(-4, 1, 1 - (-z - 5) / 73);
-      return Math.max(0, 1 - Math.abs(x - cx) / 4.5);
     }
     return 0;
   },
 
   pathWaypoints: [
-    [22, 88],    // arrival — near open east end (gentle slope down)
-    [18, 78],
-    [15, 65],
-    [12, 50],
-    [ 8, 35],
-    [ 8, 22],    // valley floor
-    [ 5, 14],
-    [ 1,  6],
-    [ 1, -5],    // bridge crossing
-    [-2, -18],
-    [-4, -32],
-    [-4, -48],
-    [-3, -55],
-    [-2, -62],   // halls entrance
+    [20, 92],   // arrival in bent section
+    [18, 80],
+    [16, 68],
+    [14, 58],   // valley floor reached
+    [12, 45],
+    [ 9, 30],
+    [ 7, 15],   // east bank, clear of stream
+    [ 7,  8],
+    [ 1,  2],   // step onto bridge
+    [ 1, -4],   // off bridge west side
+    [-3, -14],
+    [-8, -28],
+    [-13,-42],
+    [-18,-50],  // climbing up toward shelf
+    [-22,-60],  // halls entrance on hillside
   ],
 
   lorePoints: [
     {
-      pos: { x: 20, z: 82 }, radius: 10,
+      pos: { x: 18, z: 80 }, radius: 10,
       text: 'At last they rode over the top of a steep bank, and Frodo looked down. The valley of Rivendell lay below, misty and pale, and very far away. He could hear, far beneath him, the voice of a river and the sound of falling water.',
       cite: 'The Fellowship of the Ring, Book I, Ch. 12'
     },
@@ -187,7 +219,7 @@ const Rivendell = {
       cite: 'The Fellowship of the Ring, Book I, Ch. 12'
     },
     {
-      pos: { x: -3, z: -58 }, radius: 9,
+      pos: { x: -22, z: -55 }, radius: 9,
       text: '"Welcome to Rivendell, Mr. Baggins." A perfect house, whether you like food or sleep or story-telling or singing, or just sitting and thinking best, or a pleasant mixture of them all.',
       cite: 'The Fellowship of the Ring, Book II, Ch. 1'
     },
@@ -201,12 +233,29 @@ const Rivendell = {
   boundary: 150,
 
   transitions: [
-    { trigger: { x: 22, z: 102, radius: 14 }, to: 'Weathertop' },
+    { trigger: { x: 22, z: 105, radius: 14 }, to: 'Weathertop' },
   ],
 
   arrivals: {
-    'Weathertop': { x: 22, z: 90, yaw: Math.PI },
+    'Weathertop': { x: 20, z: 92, yaw: 0 },
   },
+
+  // -----------------------------------------------------------
+  //  WALKABLE BRIDGE SEGMENTS
+  //  Three segments approximate a gentle arch (/-\).
+  //  Bridge runs along X axis → yaw = PI/2.
+  //  BR_WATER = waterY(0) = -39.5.
+  //  Deck ends at water + 1.5 = -38.0. Crown +2.5 = -35.5.
+  //  Each segment length=3.5 (X span), width=3.2 (Z depth).
+  // -----------------------------------------------------------
+  walkables: [
+    // Left ramp: x -3.25 to 0.25, centre x=-1.5, z=0
+    { x: -1.5, z: 0, yaw: Math.PI/2, length: 3.5, width: 3.2, yStart: -38.0, yEnd: -35.5 },
+    // Crown: x 0.25 to 3.75, centre x=2.0, z=0  (slight residual curve)
+    { x:  2.0, z: 0, yaw: Math.PI/2, length: 3.5, width: 3.2, yStart: -35.5, yEnd: -35.5 },
+    // Right ramp: x 3.75 to 7.25, centre x=5.5, z=0
+    { x:  5.5, z: 0, yaw: Math.PI/2, length: 3.5, width: 3.2, yStart: -35.5, yEnd: -38.0 },
+  ],
 
   // -----------------------------------------------------------
   //  BUILD SCENE
@@ -221,10 +270,9 @@ const Rivendell = {
       t: 0,
     };
 
-    // ---- materials ----
     const matGold   = new THREE.MeshLambertMaterial({ color: 0xd4a030 });
     const matRust   = new THREE.MeshLambertMaterial({ color: 0xb85828 });
-    const matAmber  = new THREE.MeshLambertMaterial({ color: 0xe8b840, side: THREE.DoubleSide });
+    const matAmber  = new THREE.MeshLambertMaterial({ color: 0xe8b840 });
     const matCopper = new THREE.MeshLambertMaterial({ color: 0xc07020 });
     const matWood   = new THREE.MeshLambertMaterial({ color: 0x6b4c2a });
     const matElven  = new THREE.MeshLambertMaterial({ color: 0xe8ddc0 });
@@ -234,124 +282,97 @@ const Rivendell = {
     const matDark   = MAT.STONE_DARK;
 
     const matStream = new THREE.MeshLambertMaterial({
-      color: 0x4a9ab8, transparent: true, opacity: 0.84,
+      color: 0x4a9ab8, transparent: true, opacity: 0.86,
     });
     const matFoam = new THREE.MeshLambertMaterial({
       color: 0xddeeff, transparent: true, opacity: 0.78,
     });
-    const matMistVol = new THREE.MeshLambertMaterial({
-      color: 0xcce8f0, transparent: true, opacity: 0.32,
-      depthWrite: false,
-    });
 
     // =====================================================
-    //  AUTUMN TREES
+    //  STREAM — 3D boxes, smooth flat waterY surface
+    //
+    //  waterY(z) = BASE_WATER + z * TILT (purely linear).
+    //  chFloor always sampled at x=1 (channel deepest point),
+    //  so boxH = waterY - chFloor is consistent.
+    //  Box is positioned at streamCx for visual meander, but
+    //  its height anchors to the x=1 channel depth reference.
+    //  This guarantees all box tops land at exactly waterY(z).
+    //  Stream starts at z=65 (bend point) and runs to z=-85.
+    // =====================================================
+    const BASE_WATER = -39.5;
+    const WATER_TILT =  0.03;
+    const STREAM_W   =  5.5;
+    const STREAM_DZ  =  5.0;
+
+    function waterY(z) { return BASE_WATER + z * WATER_TILT; }
+    function streamCx(z) { return 1 + Math.sin(z * 0.05) * 1.2; }
+
+    for (let sz = 65; sz >= -85; sz -= STREAM_DZ) {
+      const segZ    = sz - STREAM_DZ / 2;
+      const cx      = streamCx(segZ);
+      const wY      = waterY(segZ);
+      const chFloor = groundY(1, segZ);
+      const boxH    = Math.max(0.4, wY - chFloor);
+      const sBox    = new THREE.Mesh(
+        new THREE.BoxGeometry(STREAM_W, boxH, STREAM_DZ + 0.2),
+        matStream.clone()
+      );
+      sBox.position.set(cx, chFloor + boxH / 2, segZ);
+      scene.add(sBox);
+      refs.streamBoxes.push(sBox);
+    }
+
+    // =====================================================
+    //  AUTUMN TREES — on valley walls, clear of stream
     // =====================================================
     const leafMats = [matGold, matRust, matAmber, matCopper];
     const treeDefs = [
-      [-16,-5],[-20,10],[-24,-20],[-28,5],
-      [-18,30],[-26,42],[-22,-35],[-18,-52],[-24,-55],[-14,-65],
-      [22,0],[26,18],[24,-12],[28,35],
-      [20,-28],[26,-45],[22,-58],
-      [-9,15],[-11,-22],[-8,-38],[-10,5],
-      [11,25],[13,-5],[10,-42],
-      [18,55],[14,62],[22,68],[26,72],  // east open end — no ridge trees
+      // West wall
+      [-16,-5],[-20,10],[-24,-20],[-28,5],[-18,30],[-26,42],
+      [-22,-35],[-18,-52],[-24,-55],[-14,-65],
+      // East wall
+      [22,0],[26,18],[24,-12],[28,35],[20,-28],[26,-45],[22,-58],
+      // Floor edges (east of stream, well clear)
+      [8,20],[9,-10],[8,-35],[10,5],
+      // Near bend
+      [18,55],[14,62],[16,70],[22,75],
     ];
     treeDefs.forEach(([tx, tz], i) => {
       const gy = groundY(tx, tz);
       const h  = 5.5 + (i % 5) * 1.4;
       const lm = leafMats[i % leafMats.length];
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.36, h, 9), matWood);
-      trunk.position.set(tx, gy + h / 2 - h * 0.25, tz);
+      trunk.position.set(tx, gy + h/2 - h*0.25, tz);
       scene.add(trunk);
       const cr  = 2.8 + (i % 3) * 0.7;
       const can = new THREE.Mesh(new THREE.SphereGeometry(cr, 8, 6), lm);
-      can.position.set(tx, gy + h * 0.8 + cr * 0.45, tz);
+      can.position.set(tx, gy + h*0.8 + cr*0.45, tz);
       scene.add(can);
-      const c2 = new THREE.Mesh(new THREE.SphereGeometry(cr * 0.72, 8, 6), lm);
-      c2.position.set(tx + (i%2?0.9:-0.9), gy + h * 0.95 + cr * 0.45, tz + 0.5);
+      const c2 = new THREE.Mesh(new THREE.SphereGeometry(cr*0.72, 8, 6), lm);
+      c2.position.set(tx + (i%2?0.9:-0.9), gy + h*0.95 + cr*0.45, tz + 0.5);
       scene.add(c2);
       refs.foliage.push(can, c2);
     });
 
     // =====================================================
-    //  STREAM — 3D BOXES WITH PERFECTLY FLAT TOP SURFACE
-    //
-    //  Key insight: water seeks a level. We define a smooth
-    //  waterY(z) = BASE_WATER + z * TILT — a purely linear
-    //  surface with no noise. Then each box's height is
-    //  computed as (waterY - chFloor), where chFloor is
-    //  always sampled at x=1 (channel deepest point),
-    //  not at the meandering cx. This guarantees every
-    //  box top lands at exactly waterY(z), making the
-    //  surface look like a real body of water.
-    //
-    //  The box is POSITIONED at cx (meander) but SIZED
-    //  using the x=1 floor reference.
-    //
-    //  Stream runs from z=65 (bend) west to z=-85 (pool).
-    //  East of z=65 the stream bends north and is hidden
-    //  by mist, so no boxes there.
+    //  BEND MOUTH MIST — large volumes at z=72..100
     // =====================================================
-    const BASE_WATER = -36.8;   // waterY at z=0
-    const WATER_TILT =  0.03;   // matches terrain floor tilt
-    const STREAM_W   =  5.5;    // width of water box
-    const STREAM_DZ  =  5.0;    // segment length
-
-    function waterY(z) { return BASE_WATER + z * WATER_TILT; }
-    function streamCx(z) {
-      if (z > 65) {
-        const bt = Math.min(1, (z - 65) / 25);
-        return 1 - bt * 9;
-      }
-      return 1 + Math.sin(z * 0.05) * 1.2;
-    }
-
-    for (let sz = 65; sz >= -85; sz -= STREAM_DZ) {
-      const segMidZ = sz - STREAM_DZ / 2;
-      const cx      = streamCx(segMidZ);
-      const wY      = waterY(segMidZ);
-      const chFloor = groundY(1, segMidZ);       // always at x=1 for consistent depth
-      const boxH    = Math.max(0.5, wY - chFloor);  // water depth, minimum 0.5
-
-      const sBox = new THREE.Mesh(
-        new THREE.BoxGeometry(STREAM_W, boxH, STREAM_DZ + 0.3),
-        matStream.clone()
-      );
-      // Bottom of box at chFloor, top at wY
-      sBox.position.set(cx, chFloor + boxH / 2, segMidZ);
-      scene.add(sBox);
-      refs.streamBoxes.push(sBox);
-    }
-
-    // =====================================================
-    //  EAST END — BEND + MIST WALL
-    //
-    //  The stream bends sharply north at z≈65, implying
-    //  the valley continues but turns. Large volumetric
-    //  mist spheres fill z=75..100 to obscure the open end.
-    //  No terrain rise — the boundary prevents exploration.
-    // =====================================================
-    // Valley-mouth mist — large semi-transparent spheres
-    const mistConfigs = [
-      // Arranged in a rough curtain across z≈78..92
-      { x: -5,  z: 80, r: 14, op: 0.28 },
-      { x:  8,  z: 82, r: 16, op: 0.32 },
-      { x: 18,  z: 78, r: 13, op: 0.25 },
-      { x: -2,  z: 90, r: 18, op: 0.22 },
-      { x: 12,  z: 88, r: 15, op: 0.30 },
-      { x:  3,  z: 96, r: 20, op: 0.18 },
-      { x: -8,  z: 94, r: 12, op: 0.24 },
-      { x: 24,  z: 86, r: 11, op: 0.20 },
-    ];
-    mistConfigs.forEach(({ x: mx, z: mz, r: mr, op }) => {
-      const mGy   = groundY(mx, mz);
-      const mGeo  = new THREE.SphereGeometry(mr, 8, 6);
-      const mMat  = new THREE.MeshLambertMaterial({
+    [
+      { x:-2,  z:76, r:13, op:0.28 },
+      { x:10,  z:80, r:16, op:0.32 },
+      { x:20,  z:78, r:12, op:0.24 },
+      { x: 4,  z:88, r:18, op:0.20 },
+      { x:14,  z:86, r:14, op:0.28 },
+      { x: 0,  z:96, r:20, op:0.16 },
+      { x:-6,  z:92, r:11, op:0.22 },
+      { x:26,  z:84, r:10, op:0.18 },
+    ].forEach(({ x: mx, z: mz, r: mr, op }) => {
+      const mGy  = groundY(mx, mz);
+      const mMat = new THREE.MeshLambertMaterial({
         color: 0xd8eef4, transparent: true, opacity: op, depthWrite: false,
       });
-      const mMesh = new THREE.Mesh(mGeo, mMat);
-      mMesh.position.set(mx, mGy + mr * 0.6, mz);
+      const mMesh = new THREE.Mesh(new THREE.SphereGeometry(mr, 8, 6), mMat);
+      mMesh.position.set(mx, mGy + mr * 0.55, mz);
       mMesh._phase  = Math.random() * Math.PI * 2;
       mMesh._startY = mMesh.position.y;
       scene.add(mMesh);
@@ -359,113 +380,81 @@ const Rivendell = {
     });
 
     // =====================================================
-    //  WATERFALL CHUTE
+    //  WATERFALL CHUTE — planes draped along terrain slope
     //
-    //  The chute is the SLOPED SURFACE of the cliff, not
-    //  a vertical curtain. Each PlaneGeometry segment is
-    //  laid FLAT on the terrain (like a rug draped over
-    //  the slope), facing UPWARD with its normal pointing
-    //  roughly toward the sky.
-    //
-    //  Correct orientation:
-    //    1. PlaneGeometry default faces +Z (normal = +Z)
-    //    2. rotateX(-PI/2) → lays it flat, normal = +Y
-    //    3. Then tilt around X by the terrain slope angle
-    //       so it follows the cliff face exactly.
-    //
-    //  The slope angle at each segment is computed from
-    //  the terrain height difference between adjacent samples.
-    //  We sample at z from -88 (pool) up to -115 (cliff top),
-    //  stepping in +Z direction (going from top down toward pool).
+    //  Each PlaneGeometry is created in its default orientation
+    //  (faces +Z, normal = +Z). We then:
+    //    1. rotateX(-PI/2) — lay flat on XZ plane, normal = +Y
+    //  That's all for the geometry. Then on the MESH:
+    //    2. rotation.x = slopeAngle — tilt to follow cliff face
+    //       where slopeAngle = atan2(dy, dz), dy = rise, dz = run
+    //  This way the plane drapes along the slope like water
+    //  flowing down the cliff face.
+    //  We also rotate the mesh around Y to face slightly toward
+    //  the valley (the cliff face is not perfectly Z-aligned).
     // =====================================================
     const WF_X     = -1;
     const WF_Z_TOP = -115;
     const WF_Z_BOT = -88;
     const WF_DZ    =  4;
 
-    // Sample terrain along the chute centreline
-    const chuteZ = [];
-    for (let cz = WF_Z_TOP; cz <= WF_Z_BOT; cz += WF_DZ) {
-      chuteZ.push(cz);
-    }
-
-    for (let ci = 0; ci < chuteZ.length - 1; ci++) {
-      const z0 = chuteZ[ci];
-      const z1 = chuteZ[ci + 1];
+    for (let cz = WF_Z_TOP; cz < WF_Z_BOT; cz += WF_DZ) {
+      const z0 = cz, z1 = cz + WF_DZ;
       const h0 = groundY(WF_X, z0);
       const h1 = groundY(WF_X, z1);
-
       const midZ = (z0 + z1) / 2;
       const midH = (h0 + h1) / 2;
-      const dz   = z1 - z0;   // positive going toward pool (east)
-      const dy   = h1 - h0;   // h1 > h0 means terrain drops (going toward pool)
 
-      // Segment length along the slope surface
-      const segLen = Math.sqrt(dz * dz + dy * dy);
+      const dz      = z1 - z0;        // +4 (toward pool = east = positive Z)
+      const dy      = h1 - h0;        // negative when dropping toward pool
+      const segLen  = Math.sqrt(dz*dz + dy*dy);
+      const slopeAngle = Math.atan2(dy, dz);  // negative on steep drop
 
-      // Tilt angle: slope of terrain in the ZY plane.
-      // We want the plane to lie on the surface — its "down" axis
-      // should follow the slope direction.
-      // atan2(dy, dz) gives angle from horizontal (positive Z axis).
-      // When dy < 0 (terrain drops toward pool), angle is negative → plane tilts down.
-      const slopeAngle = Math.atan2(dy, dz);
+      const tFrac = (cz - WF_Z_TOP) / (WF_Z_BOT - WF_Z_TOP); // 0=top, 1=bottom
+      const wfW   = 2.0 + tFrac * 2.2;  // wider at pool base
 
-      // Width of water narrows approaching top (valley narrows)
-      const tFrac = ci / (chuteZ.length - 1);  // 0=top, 1=bottom
-      const wfW   = 2.2 + (1 - tFrac) * 1.8;   // wider at bottom (pool), narrower at top
-
-      const wfGeo = new THREE.PlaneGeometry(wfW, segLen + 0.5);
-      // Step 1: lay flat (normal = +Y, plane in XZ)
-      wfGeo.rotateX(-Math.PI / 2);
-      // Step 2: tilt to match slope — rotate around world X so plane follows cliff face
-      // Positive slopeAngle = terrain rising toward east → rotate plane to lean east
-      wfGeo.rotateX(slopeAngle);
+      // Geometry laid flat with rotateX
+      const wfGeo = new THREE.PlaneGeometry(wfW, segLen + 0.4);
+      wfGeo.rotateX(-Math.PI / 2);   // now faces +Y (lies in XZ plane)
 
       const wfMat = new THREE.MeshLambertMaterial({
-        color: tFrac > 0.6 ? 0x88c4e0 : 0xbbd8f0,
+        color: tFrac < 0.5 ? 0x99ccee : 0xbbddff,
         transparent: true,
-        opacity: 0.6 + (1 - tFrac) * 0.18,  // more opaque at bottom
+        opacity: 0.55 + tFrac * 0.22,
         side: THREE.DoubleSide,
+        depthWrite: false,
       });
       const wfMesh = new THREE.Mesh(wfGeo, wfMat);
-      // Offset slightly above terrain surface so it's visible
-      wfMesh.position.set(WF_X, midH + 0.4, midZ);
+      wfMesh.position.set(WF_X, midH + 0.5, midZ);
+      // Tilt mesh to follow cliff slope in ZY plane
+      wfMesh.rotation.x = slopeAngle;
       scene.add(wfMesh);
       refs.waterfallMeshes.push(wfMesh);
     }
 
-    // Splash pool at chute base
+    // Splash pool
     const poolZ   = WF_Z_BOT + 2;
-    const poolFlr = groundY(WF_X, poolZ);
     const poolTop = waterY(poolZ);
-
-    const splash = new THREE.Mesh(new THREE.SphereGeometry(5.5, 10, 7), matFoam);
-    splash.scale.y = 0.12;
+    const splash  = new THREE.Mesh(new THREE.SphereGeometry(5.5, 10, 7), matFoam);
+    splash.scale.y = 0.10;
     splash.position.set(WF_X, poolTop + 0.1, poolZ);
     scene.add(splash);
 
-    const spray = new THREE.Mesh(new THREE.SphereGeometry(2.8, 8, 6),
-      new THREE.MeshLambertMaterial({ color: 0xeef6ff, transparent: true, opacity: 0.72 }));
-    spray.scale.y = 2.2;
+    const sprayMat = new THREE.MeshLambertMaterial({ color: 0xeef6ff, transparent: true, opacity: 0.70 });
+    const spray    = new THREE.Mesh(new THREE.SphereGeometry(2.8, 8, 6), sprayMat);
+    spray.scale.y  = 2.0;
     spray.position.set(WF_X, poolTop + 3.5, poolZ - 1);
     scene.add(spray);
 
-    // Mist particles rising from pool
-    for (let pi = 0; pi < 26; pi++) {
-      const angle  = (pi / 26) * Math.PI * 2;
-      const pr     = 0.8 + Math.random() * 4.5;
+    for (let pi = 0; pi < 24; pi++) {
+      const angle  = (pi / 24) * Math.PI * 2;
+      const pr     = 0.8 + Math.random() * 4.2;
       const pMat   = new THREE.MeshLambertMaterial({
-        color: 0xddeeff, transparent: true, opacity: 0.35 + Math.random() * 0.4,
-        depthWrite: false,
+        color: 0xddeeff, transparent: true, opacity: 0.35 + Math.random() * 0.4, depthWrite: false,
       });
-      const pMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.3 + Math.random() * 0.45, 6, 4), pMat);
+      const pMesh  = new THREE.Mesh(new THREE.SphereGeometry(0.3 + Math.random() * 0.45, 6, 4), pMat);
       const startY = poolTop + 0.5 + Math.random() * 4;
-      pMesh.position.set(
-        WF_X + Math.cos(angle) * pr * 0.6,
-        startY,
-        poolZ + Math.sin(angle) * pr
-      );
+      pMesh.position.set(WF_X + Math.cos(angle)*pr*0.6, startY, poolZ + Math.sin(angle)*pr);
       pMesh._startY = startY;
       pMesh._phase  = Math.random() * Math.PI * 2;
       scene.add(pMesh);
@@ -473,127 +462,97 @@ const Rivendell = {
     }
 
     // =====================================================
-    //  STONE ARCH BRIDGE — with gently arced deck
+    //  STONE ARCH BRIDGE — gentle arc, matches walkables[]
     //
-    //  The arch is a semicircle of voussoir cylinders.
-    //  The deck follows the arch top — i.e., it's not flat
-    //  but follows the same gentle arc, just shifted up by
-    //  the deck thickness. This makes it walkable.
-    //
-    //  Walkability note: if the engine uses groundY() for
-    //  player height, the bridge deck won't automatically
-    //  support the player — the player will fall to stream
-    //  level. The engine needs a supplemental height sample
-    //  that includes mesh colliders, OR the terrain at the
-    //  bridge crossing needs to be raised to match.
-    //  We raise the streamCx terrain here by adjusting the
-    //  streamCut at bridge z=0 to be shallower, so the
-    //  groundY at the bridge still produces a walkable path.
-    //  (The terrain formula already produces a ~4.1 unit
-    //  channel depth; we accept this and note the engine gap.)
-    //
-    //  Bridge params:
-    //    Stream cx at z=0: 1 + sin(0)*1.2 = 1.0
-    //    Water surface at z=0: waterY(0) = -36.8
-    //    Arch inner radius: 4.5
-    //    Spring line Y: waterY - 0.3 = -37.1
-    //    Arch crown Y: springY + 4.5 = -32.6
-    //    Deck top: crownY + 0.5 = -32.1
+    //  Bridge runs along X from x≈-3 to x≈7.
+    //  Walkable segments: ends at y=-38, crown at y=-35.5.
+    //  Visual arch matches those Y values.
+    //  No large cylindrical pillars — small stone abutment
+    //  blocks at each end tuck into the stream bank.
+    //  Arch ring: 9 voussoir cylinders (Z-axis) in a
+    //  shallow semicircle. Deck: 10 thin BoxGeometry slabs
+    //  following the arch curve. Parapets on Z edges.
     // =====================================================
     const BR_Z      =  0;
-    const BR_CX     =  1 + Math.sin(BR_Z * 0.05) * 1.2;  // = 1.0
-    const BR_WATER  = waterY(BR_Z);                         // = -36.8
-    const ARCH_R    =  4.5;
-    const ARCH_W    =  3.2;    // bridge width (Z span)
-    const SPRING_Y  = BR_WATER - 0.3;                       // = -37.1 (arch starts at water)
-    const CROWN_Y   = SPRING_Y + ARCH_R;                    // = -32.6
-    const DECK_TOP  = CROWN_Y + 0.6;                        // = -32.0
+    const BR_X0     = -3.25;   // west abutment x
+    const BR_X1     =  7.25;   // east abutment x
+    const BR_CX     = (BR_X0 + BR_X1) / 2;   // = 2.0
+    const BR_SPAN   = BR_X1 - BR_X0;          // = 10.5
+    const DECK_END  = -38.0;   // deck Y at abutments (water + 1.5)
+    const DECK_TOP  = -35.5;   // deck Y at crown (+2.5 above ends)
+    // Arch circle: passes through ends (DECK_END) and crown (DECK_TOP).
+    // For a gentle arch: radius R, sag S = DECK_TOP - DECK_END = 2.5
+    // Using circular arc: R = (half_span² + S²) / (2S)
+    const HALF_SPAN = BR_SPAN / 2;   // 5.25
+    const SAG       = DECK_TOP - DECK_END;  // 2.5
+    const ARCH_R    = (HALF_SPAN*HALF_SPAN + SAG*SAG) / (2*SAG);  // ≈ 13.5 (large R = gentle)
+    const ARCH_CY   = DECK_END - ARCH_R;    // centre of arch circle (below deck)
+    const ARCH_W    = 3.2;   // bridge width (Z span)
 
-    const ARCH_SEGS  = 9;
-    const VOUS_ANGLE = Math.PI / ARCH_SEGS;
+    // Half-angle of the arch (angle from vertical to springer)
+    const halfAng = Math.asin(HALF_SPAN / ARCH_R);
 
-    // Abutments first — solid piers at spring points
-    const abLX = BR_CX - ARCH_R - 0.4;
-    const abRX = BR_CX + ARCH_R + 0.4;
-    const abH  = ARCH_R + 2.0;    // tall enough to ground properly
-    [abLX, abRX].forEach(ax => {
-      const abGeo = new THREE.CylinderGeometry(1.1, 1.4, abH, 9);
+    // Small abutment blocks at each springer
+    [BR_X0, BR_X1].forEach(ax => {
+      const abGy  = groundY(ax, BR_Z);
+      const abTop = DECK_END;
+      const abH   = abTop - abGy + 0.3;
+      const abGeo = new THREE.BoxGeometry(1.4, Math.max(0.5, abH), ARCH_W + 0.4);
       const ab    = new THREE.Mesh(abGeo, matDark);
-      ab.position.set(ax, groundY(ax, BR_Z) + abH / 2 - abH * 0.25, BR_Z);
+      ab.position.set(ax, abGy + Math.max(0.5, abH)/2, BR_Z);
       scene.add(ab);
     });
 
-    // Voussoir blocks — arch ring
+    // Arch ring — voussoir cylinders
+    const ARCH_SEGS = 9;
     for (let vi = 0; vi < ARCH_SEGS; vi++) {
-      const ang0 = (vi       / ARCH_SEGS) * Math.PI;
-      const ang1 = ((vi + 1) / ARCH_SEGS) * Math.PI;
-      const angM = (ang0 + ang1) / 2;
-
-      // Arch in the XY plane — angle 0 = right (positive X), π = left
-      // We go counter-clockwise from right springer to left springer,
-      // crown at angM = π/2 (straight up)
-      const vx = BR_CX - ARCH_R * Math.cos(angM);   // minus because we sweep left→right
-      const vy = SPRING_Y + ARCH_R * Math.sin(angM); // rises to crown
-
-      const vGeo = new THREE.CylinderGeometry(0.58, 0.58, ARCH_W, 6);
-      vGeo.rotateX(Math.PI / 2);    // lie along Z axis (bridge span direction)
+      const t0   = vi       / ARCH_SEGS;
+      const t1   = (vi + 1) / ARCH_SEGS;
+      const tM   = (t0 + t1) / 2;
+      // Angle sweeps from -halfAng (left springer) to +halfAng (right springer)
+      // via the top (angle = 0 = pointing straight up)
+      const ang  = -halfAng + tM * 2 * halfAng;
+      const vx   = BR_CX + ARCH_R * Math.sin(ang);
+      const vy   = ARCH_CY + ARCH_R * Math.cos(ang);
+      const vGeo = new THREE.CylinderGeometry(0.45, 0.45, ARCH_W, 6);
+      vGeo.rotateX(Math.PI / 2);    // lie along Z
       const vMesh = new THREE.Mesh(vGeo, matStone);
       vMesh.position.set(vx, vy, BR_Z);
-      // Tilt each voussoir to be perpendicular to the arch radius
-      // Radius vector at angM from centre: (-cos(angM), sin(angM))
-      // The block should have its height axis along this radius,
-      // so rotate around Z by the angle of the radius from vertical
-      vMesh.rotation.z = -(Math.PI / 2 - angM);   // 0° at crown, ±90° at springers
+      vMesh.rotation.z = ang;       // tilt to be radial
       scene.add(vMesh);
     }
 
-    // Arced deck — series of thin deck slabs following the arch curve
-    // Each slab is a flat box placed along the arch profile
+    // Deck slabs following arch curve
     const DECK_SEGS = 12;
-    const DECK_H    = 0.45;
     for (let di = 0; di < DECK_SEGS; di++) {
-      // Sample arch curve at di and di+1
-      const ang0 = (di       / DECK_SEGS) * Math.PI;
-      const ang1 = ((di + 1) / DECK_SEGS) * Math.PI;
-      const angM = (ang0 + ang1) / 2;
+      const t0   = di       / DECK_SEGS;
+      const t1   = (di + 1) / DECK_SEGS;
+      const tM   = (t0 + t1) / 2;
+      const ang  = -halfAng + tM * 2 * halfAng;
+      const ang0 = -halfAng + t0 * 2 * halfAng;
+      const ang1 = -halfAng + t1 * 2 * halfAng;
 
-      // Position at top of arch (ARCH_R + deck offset from centre)
-      const r    = ARCH_R + 0.3;  // slightly outside arch ring
-      const dx   = BR_CX - r * Math.cos(angM);
-      const dy   = SPRING_Y + r * Math.sin(angM) + DECK_H / 2;
+      // Top of arch at this point
+      const dx   = BR_CX + ARCH_R * Math.sin(ang);
+      const dy   = ARCH_CY + ARCH_R * Math.cos(ang) + 0.25; // +deck thickness/2
+      const x0   = BR_CX + ARCH_R * Math.sin(ang0);
+      const x1   = BR_CX + ARCH_R * Math.sin(ang1);
+      const slabW = Math.abs(x1 - x0) + 0.05;
 
-      // Width of this slab in X: chord length between ang0 and ang1
-      const x0 = BR_CX - r * Math.cos(ang0);
-      const x1 = BR_CX - r * Math.cos(ang1);
-      const slabW = Math.abs(x1 - x0) + 0.1;
-
-      const slabGeo = new THREE.BoxGeometry(slabW, DECK_H, ARCH_W + 0.2);
+      const slabGeo = new THREE.BoxGeometry(slabW, 0.4, ARCH_W + 0.2);
       const slab    = new THREE.Mesh(slabGeo, matStone);
       slab.position.set(dx, dy, BR_Z);
-
-      // Tilt slab to be tangent to arch (perpendicular to radius)
-      slab.rotation.z = -(Math.PI / 2 - angM);
+      slab.rotation.z = ang;   // tangent tilt = radial angle
       scene.add(slab);
     }
 
-    // Parapet walls on each Z edge — follow arch profile via thin slab stack
-    [-ARCH_W / 2 - 0.15, ARCH_W / 2 + 0.15].forEach(pzOff => {
-      for (let di = 0; di < DECK_SEGS; di++) {
-        const ang0 = (di       / DECK_SEGS) * Math.PI;
-        const ang1 = ((di + 1) / DECK_SEGS) * Math.PI;
-        const angM = (ang0 + ang1) / 2;
-        const r    = ARCH_R + 0.3;
-        const dx   = BR_CX - r * Math.cos(angM);
-        const dy   = SPRING_Y + r * Math.sin(angM) + DECK_H + 0.5;
-        const x0   = BR_CX - r * Math.cos(ang0);
-        const x1   = BR_CX - r * Math.cos(ang1);
-        const slabW = Math.abs(x1 - x0) + 0.1;
-        const pGeo  = new THREE.BoxGeometry(slabW, 0.9, 0.35);
-        const par   = new THREE.Mesh(pGeo, matStone);
-        par.position.set(dx, dy, BR_Z + pzOff);
-        par.rotation.z = -(Math.PI / 2 - angM);
-        scene.add(par);
-      }
+    // Parapets — thin box running full span on each Z edge
+    // Approximate as straight horizontal boxes (gentle arch ≈ flat)
+    [-ARCH_W/2 - 0.18, ARCH_W/2 + 0.18].forEach(pzOff => {
+      const pGeo = new THREE.BoxGeometry(BR_SPAN + 0.4, 0.85, 0.38);
+      const par  = new THREE.Mesh(pGeo, matStone);
+      par.position.set(BR_CX, DECK_TOP + 0.42, BR_Z + pzOff);
+      scene.add(par);
     });
 
     // =====================================================
@@ -601,81 +560,99 @@ const Rivendell = {
     // =====================================================
     [[-18,8,2.0],[-22,-20,2.4],[-16,-38,1.8],
      [22,14,2.2],[26,-24,1.9],[24,42,1.6],
-     [-24,50,2.6],[28,-10,2.0],[-20,-55,2.1],
+     [-24,50,2.6],[28,-10,2.0],[-20,-65,2.1],
      [26,-52,1.7],[-14,-68,1.5],[20,-65,1.9]
     ].forEach(([wx,wz,ws]) => {
       const wm = new THREE.Mesh(
         new THREE.SphereGeometry(ws, 8, 6),
         Math.random() > 0.4 ? matDark : matStone
       );
-      wm.position.set(wx, groundY(wx, wz) + ws * 0.45, wz);
-      wm.scale.set(1 + Math.random()*0.3, 0.65 + Math.random()*0.35, 1 + Math.random()*0.3);
-      wm.rotation.y = Math.random() * Math.PI;
+      wm.position.set(wx, groundY(wx, wz) + ws*0.45, wz);
+      wm.scale.set(1+Math.random()*0.3, 0.65+Math.random()*0.35, 1+Math.random()*0.3);
+      wm.rotation.y = Math.random()*Math.PI;
       scene.add(wm);
     });
 
     // =====================================================
-    //  ELVEN HALLS
+    //  ELVEN HALLS — on shelf at x≈-20, z≈-55 (~32% up west wall)
+    //  groundY(-20, -55) ≈ -20.8. Place base there.
+    //  Small retaining wall below the shelf edge.
     // =====================================================
-    const HX = -3, HZ = -62;
-    const hall = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 5.8, 7, 9), matElven);
-    hall.position.set(HX, groundY(HX, HZ) + 7/2 - 7*0.25, HZ);
+    const HX = -22, HZ = -55;
+    const HGY = groundY(HX, HZ);  // ≈ -20.8
+
+    // Retaining wall — a row of stone chunks at the shelf front edge
+    for (let rz = HZ - 6; rz <= HZ + 6; rz += 3) {
+      const rwx = HX + 4;   // shelf front (facing valley)
+      const rwGy = groundY(rwx, rz);
+      const rwH  = 3.5;
+      const rw   = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, rwH, 9), matDark);
+      rw.position.set(rwx, rwGy + rwH/2 - rwH*0.2, rz);
+      scene.add(rw);
+    }
+
+    // Main hall
+    const hall = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 5.0, 6.5, 9), matElven);
+    hall.position.set(HX, HGY + 6.5/2 - 6.5*0.22, HZ);
     scene.add(hall);
-    const hallRoof = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 5.8, 3.5, 9), matRoof);
-    hallRoof.position.set(HX, groundY(HX, HZ) + 7 - 7*0.25 + 1.2, HZ);
+    const hallRoof = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 5.0, 3.2, 9), matRoof);
+    hallRoof.position.set(HX, HGY + 6.5 - 6.5*0.22 + 1.1, HZ);
     scene.add(hallRoof);
 
-    const h2x = HX-5, h2z = HZ-10;
-    const hall2 = new THREE.Mesh(new THREE.CylinderGeometry(3.8, 4.0, 6, 9), matElven);
-    hall2.position.set(h2x, groundY(h2x, h2z) + 6/2 - 6*0.25, h2z);
+    // Secondary hall — slightly higher on slope
+    const h2x = HX - 4, h2z = HZ - 7, h2Gy = groundY(h2x, h2z);
+    const hall2 = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.6, 5.5, 9), matElven);
+    hall2.position.set(h2x, h2Gy + 5.5/2 - 5.5*0.22, h2z);
     scene.add(hall2);
-    const hall2Roof = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 4.0, 3, 9), matRoof);
-    hall2Roof.position.set(h2x, groundY(h2x, h2z) + 6 - 6*0.25 + 0.9, h2z);
+    const hall2Roof = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 3.6, 2.8, 9), matRoof);
+    hall2Roof.position.set(h2x, h2Gy + 5.5 - 5.5*0.22 + 0.8, h2z);
     scene.add(hall2Roof);
 
-    const btX = HX+4, btZ = HZ-4;
-    const bt = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.2, 12, 9), matElven);
-    bt.position.set(btX, groundY(btX, btZ) + 12/2 - 12*0.25, btZ);
+    // Slender tower
+    const btX = HX + 2, btZ = HZ + 5, btGy = groundY(btX, btZ);
+    const bt = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 11, 9), matElven);
+    bt.position.set(btX, btGy + 11/2 - 11*0.22, btZ);
     scene.add(bt);
-    const btRoof = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 1.1, 3.5, 9), matRoof);
-    btRoof.position.set(btX, groundY(btX, btZ) + 12 - 12*0.25 + 1.2, btZ);
+    const btRoof = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 1.0, 3.2, 9), matRoof);
+    btRoof.position.set(btX, btGy + 11 - 11*0.22 + 1.0, btZ);
     scene.add(btRoof);
 
-    for (let pi = 0; pi < 5; pi++) {
-      const px = HX-2 + pi*1.6, pz = HZ+8, phH = 5.5;
-      const pil = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.30, phH, 9), matElven);
-      pil.position.set(px, groundY(px, pz) + phH/2 - phH*0.25, pz);
+    // Colonnade along shelf edge
+    for (let pi = 0; pi < 4; pi++) {
+      const px = HX - 1 + pi * 1.8, pz = HZ + 7, phGy = groundY(px, pz), phH = 4.8;
+      const pil = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, phH, 9), matElven);
+      pil.position.set(px, phGy + phH/2 - phH*0.22, pz);
       scene.add(pil);
     }
-    const clx = HX+1.2, clz = HZ+8;
-    const lintelGeo = new THREE.CylinderGeometry(0.25, 0.25, 8.5, 9);
+    // Lintel
+    const clx = HX + 2, clz = HZ + 7, clGy = groundY(clx, clz);
+    const lintelGeo = new THREE.CylinderGeometry(0.22, 0.22, 7.5, 9);
     lintelGeo.rotateZ(Math.PI/2);
     const lintel = new THREE.Mesh(lintelGeo, matElven);
-    lintel.position.set(clx, groundY(clx, clz) + 5.5 - 5.5*0.1, clz);
+    lintel.position.set(clx, clGy + 4.8 - 4.8*0.1, clz);
     scene.add(lintel);
 
-    [[20,72,3.2],[24,76,2.8],[18,66,2.5],[22,60,3.0]].forEach(([rx,rz,rh]) => {
-      const rGeo  = new THREE.CylinderGeometry(0.28, 0.42, rh, 9);
-      const rMesh = new THREE.Mesh(rGeo, matMoss);
+    // Hall glow
+    const fireLight = new THREE.PointLight(0xffcc66, 2.0, 35);
+    fireLight.position.set(HX, HGY + 6, HZ);
+    scene.add(fireLight);
+    const fireFill = new THREE.PointLight(0xffaa44, 0.8, 22);
+    fireFill.position.set(h2x, h2Gy + 5, h2z);
+    scene.add(fireFill);
+
+    // =====================================================
+    //  ENTRY RIDGE STONES near arrival
+    // =====================================================
+    [[18,80,2.8],[22,78,3.0],[16,72,2.5],[20,68,2.6]].forEach(([rx,rz,rh]) => {
+      const rMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.40, rh, 9), matMoss);
       rMesh.position.set(rx, groundY(rx, rz) + rh/2 - rh*0.25, rz);
       scene.add(rMesh);
     });
-
-    // =====================================================
-    //  FIRELIGHT
-    // =====================================================
-    const fireLight = new THREE.PointLight(0xffcc66, 2.0, 35);
-    fireLight.position.set(HX, groundY(HX, HZ) + 6, HZ);
-    scene.add(fireLight);
-    const fireFill = new THREE.PointLight(0xffaa44, 0.8, 22);
-    fireFill.position.set(h2x, groundY(h2x, h2z) + 5, h2z);
-    scene.add(fireFill);
 
     refs.fireLight = fireLight;
     refs.fireFill  = fireFill;
     refs.flames    = [];
     refs.embers    = [];
-
     return refs;
   },
 
@@ -687,53 +664,47 @@ const Rivendell = {
     refs.t = (refs.t || 0) + dt;
     const T = refs.t;
 
-    // Stream — shimmer
     if (refs.streamBoxes) {
       refs.streamBoxes.forEach((s, i) => {
-        s.material.opacity = 0.78 + Math.sin(T * 1.4 + i * 0.7) * 0.07;
+        s.material.opacity = 0.80 + Math.sin(T*1.4 + i*0.7)*0.07;
       });
     }
 
-    // Waterfall chute — subtle flutter
     if (refs.waterfallMeshes) {
       refs.waterfallMeshes.forEach((wf, i) => {
-        wf.material.opacity = Math.max(0.3,
-          wf.material.opacity + Math.sin(T * 1.8 + i * 0.6) * dt * 0.12
+        wf.material.opacity = Math.max(0.25,
+          wf.material.opacity + Math.sin(T*1.8 + i*0.6)*dt*0.12
         );
       });
     }
 
-    // Waterfall mist — rise and reset
     if (refs.waterParticles) {
       refs.waterParticles.forEach(p => {
         p.position.y += dt * 0.28;
-        p.position.x += Math.sin(T * 0.4 + p._phase) * dt * 0.06;
-        p.material.opacity = 0.28 + Math.sin(T * 0.8 + p._phase) * 0.25;
+        p.position.x += Math.sin(T*0.4 + p._phase)*dt*0.06;
+        p.material.opacity = 0.25 + Math.sin(T*0.8 + p._phase)*0.22;
         if (p.position.y > p._startY + 8) p.position.y = p._startY;
       });
     }
 
-    // Valley-mouth mist — very slow drift
     if (refs.mistParticles) {
       refs.mistParticles.forEach((p, i) => {
-        p.material.opacity = Math.max(0.10,
-          p.material.opacity + Math.sin(T * 0.3 + p._phase) * dt * 0.08
+        p.material.opacity = Math.max(0.08,
+          p.material.opacity + Math.sin(T*0.3 + p._phase)*dt*0.06
         );
-        p.position.y = p._startY + Math.sin(T * 0.22 + i) * 0.6;
-        p.position.x += Math.sin(T * 0.18 + p._phase) * dt * 0.04;
+        p.position.y = p._startY + Math.sin(T*0.22 + i)*0.7;
       });
     }
 
-    // Foliage
     if (refs.foliage) {
       refs.foliage.forEach((f, i) => {
-        f.rotation.z = Math.sin(T * 0.55 + i * 0.9) * 0.022;
-        f.rotation.x = Math.sin(T * 0.38 + i * 1.2) * 0.014;
+        f.rotation.z = Math.sin(T*0.55 + i*0.9)*0.022;
+        f.rotation.x = Math.sin(T*0.38 + i*1.2)*0.014;
       });
     }
 
-    if (refs.fireLight) refs.fireLight.intensity = 1.8 + Math.sin(T * 1.1) * 0.25;
-    if (refs.fireFill)  refs.fireFill.intensity  = 0.7  + Math.sin(T * 0.85 + 1.2) * 0.14;
+    if (refs.fireLight) refs.fireLight.intensity = 1.8 + Math.sin(T*1.1)*0.25;
+    if (refs.fireFill)  refs.fireFill.intensity  = 0.7  + Math.sin(T*0.85+1.2)*0.14;
   },
 };
 
