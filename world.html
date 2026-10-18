@@ -344,10 +344,20 @@ function loadLocation(locName, mod, arrivalPos){
   const loc = mod;
   if(!loc){ console.error('loadLocation called with null module:', locName); return; }
 
-  // Teardown
-  for(const obj of locObjects) scene.remove(obj);
+  // Teardown — remove all tracked objects and free GPU resources
+  function disposeObject(obj){
+    if(obj.geometry) obj.geometry.dispose();
+    if(obj.material){
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      mats.forEach(m=>{
+        if(m.map) m.map.dispose();
+        m.dispose();
+      });
+    }
+  }
+  for(const obj of locObjects){ scene.remove(obj); disposeObject(obj); }
   locObjects=[];
-  if(terrain){ scene.remove(terrain); terrain=null; }
+  if(terrain){ scene.remove(terrain); disposeObject(terrain); terrain=null; }
   // Remove lights added by previous location
   scene.children.filter(c=>c.isLight).forEach(l=>scene.remove(l));
 
@@ -456,9 +466,15 @@ function loadLocation(locName, mod, arrivalPos){
     locObjects.push(pathMesh);
   }
 
-  // Build scene objects — location adds its own objects to scene,
-  // returns refs for per-frame animation
-  locRefs=loc.buildScene(THREE,scene,groundY,MAT);
+  // Build scene objects — wrap scene.add so every object the location adds
+  // is automatically tracked in locObjects for teardown on transition.
+  const _origAdd = scene.add.bind(scene);
+  scene.add = (...args) => {
+    for(const obj of args) locObjects.push(obj);
+    return _origAdd(...args);
+  };
+  locRefs = loc.buildScene(THREE, scene, groundY, MAT);
+  scene.add = _origAdd; // restore original after buildScene completes
 
   // Player start — destination owns arrival positions, keyed by source location.
   // Falls back to loc.start for fresh load or unknown source.
