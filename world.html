@@ -133,7 +133,6 @@ body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d
 <!-- Location modules — add new ones here, each sets window.LocationName -->
 <script src="weathertop.js"></script>
 <script src="loc_barrowdowns.js"></script>
-<script src="rivendell.js"></script>
 <!-- <script src="bree.js"></script> -->
 
 <script>
@@ -145,7 +144,6 @@ body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d
 const LOCATIONS = {
   weathertop:  window.Weathertop,
   barrowdowns: window.BarrowDowns,
-  rivendell: window.Rivendell,
   // bree:     window.Bree,
 };
 
@@ -221,11 +219,12 @@ const starsBright =makeStarLayer(320, 2.0,0xffffff,0.92);
 const starsTwinkle=makeStarLayer(80,  2.8,0xffe8cc,0.95);
 
 // ── LOCATION STATE ────────────────────────────────────────────────────────────
-let currentLoc    = null;   // active location module
-let currentLocKey = null;   // its registry key string e.g. 'weathertop'
-let locRefs       = null;   // value returned by buildScene
-let terrain       = null;   // terrain THREE.Mesh
-let locObjects    = [];     // scene objects to remove on teardown
+let currentLoc      = null;   // active location module
+let currentLocKey   = null;   // its registry key string e.g. 'weathertop'
+let locRefs         = null;   // value returned by buildScene
+let terrain         = null;   // terrain THREE.Mesh
+let locObjects      = [];     // scene objects to remove on teardown
+let currentWalkables= [];     // elevated walkable segments (bridges, terraces, ramps)
 
 // ── HEIGHT GRID ───────────────────────────────────────────────────────────────
 // Baked from hillHeight after terrain is built. Fast bilinear lookup for
@@ -260,7 +259,38 @@ function groundY(wx,wz){
   const h01=hGrid[iz1*n+ix0], h11=hGrid[iz1*n+ix1];
   return lerp(lerp(h00,h10,fx),lerp(h01,h11,fx),fz);
 }
-function eyeHeight(x,z){ return groundY(x,z)+1.75; }
+// ── WALKABLE SEGMENTS ─────────────────────────────────────────────────────────
+// Elevated surfaces the player can walk on: bridges, terraces, ramps.
+// Each segment: { x, z, yaw, length, width, yStart, yEnd }
+//   x,z     — centre of segment in world space
+//   yaw     — rotation in XZ plane (radians); 0 = segment runs along +Z axis
+//   length  — extent along the segment's local Z axis
+//   width   — extent along the segment's local X axis
+//   yStart  — surface Y at the -Z end (start)
+//   yEnd    — surface Y at the +Z end (end)
+// The /-\ bridge shape is three segments sharing Y values at their joins.
+// Diagonal bridges use a non-zero yaw. Flat surfaces have yStart === yEnd.
+
+function elevatedY(px, pz){
+  let best = groundY(px, pz);  // terrain is always the baseline
+  for(const w of currentWalkables){
+    // Rotate player position into segment local space
+    const cos = Math.cos(-w.yaw), sin = Math.sin(-w.yaw);
+    const dx = px - w.x, dz = pz - w.z;
+    const localX =  cos*dx - sin*dz;   // across width
+    const localZ =  sin*dx + cos*dz;   // along length
+    const halfLen = w.length * 0.5;
+    const halfWid = w.width  * 0.5;
+    if(Math.abs(localX) <= halfWid && Math.abs(localZ) <= halfLen){
+      // Interpolate Y along segment (t=0 at start end, t=1 at far end)
+      const t = (localZ + halfLen) / w.length;
+      const surfaceY = w.yStart + (w.yEnd - w.yStart) * t;
+      if(surfaceY > best) best = surfaceY;
+    }
+  }
+  return best;
+}
+function eyeHeight(x,z){ return elevatedY(x,z)+1.75; }
 
 // ── SHARED MATERIALS ──────────────────────────────────────────────────────────
 const MAT = {
@@ -398,8 +428,9 @@ function loadLocation(locName, arrivalPos){
   player.yaw  = st.yaw !== undefined ? st.yaw : 0;
   player.pitch= 0;
 
-  currentLoc    = loc;
-  currentLocKey = locName;
+  currentLoc      = loc;
+  currentLocKey   = locName;
+  currentWalkables= loc.walkables || [];
 
   // Reset lore state
   activeLore=-1;
