@@ -262,6 +262,7 @@ let locRefs         = null;   // value returned by buildScene
 let terrain         = null;   // terrain THREE.Mesh
 let locObjects      = [];     // scene objects to remove on teardown
 let currentWalkables= [];     // elevated walkable segments (bridges, terraces, ramps)
+let currentBarriers = [];     // no-go zones (chasms, walls, cliff edges)
 
 // ── HEIGHT GRID ───────────────────────────────────────────────────────────────
 // Baked from hillHeight after terrain is built. Fast bilinear lookup for
@@ -328,6 +329,27 @@ function elevatedY(px, pz){
   return best;
 }
 function eyeHeight(x,z){ return elevatedY(x,z)+1.75; }
+
+// ── BARRIER ZONES ─────────────────────────────────────────────────────────────
+// Rectangular no-go zones in XZ — chasms, cliff edges, walls.
+// Each: { x, z, w, d, yaw }
+//   x, z — centre in world space
+//   w    — width  (local X after rotation)
+//   d    — depth  (local Z after rotation)
+//   yaw  — rotation, same convention as walkables (0 = aligned with Z axis)
+// The engine rejects any move that would place the player inside a barrier,
+// snapping them back to their previous position.
+
+function isInsideBarrier(px, pz){
+  for(const b of currentBarriers){
+    const cos=Math.cos(-b.yaw), sin=Math.sin(-b.yaw);
+    const dx=px-b.x, dz=pz-b.z;
+    const localX= cos*dx - sin*dz;
+    const localZ= sin*dx + cos*dz;
+    if(Math.abs(localX)<=b.w*0.5 && Math.abs(localZ)<=b.d*0.5) return true;
+  }
+  return false;
+}
 
 // ── SHARED MATERIALS ──────────────────────────────────────────────────────────
 const MAT = {
@@ -486,6 +508,7 @@ function loadLocation(locName, mod, arrivalPos){
   currentLoc      = loc;
   currentLocKey   = locName;
   currentWalkables= loc.walkables || [];
+  currentBarriers = loc.barriers  || [];
   preloadAdjacent(loc); // silently pre-load neighbouring locations
 
   // Reset lore state
@@ -704,7 +727,14 @@ function animate(){
   if(keys['KeyA']||keys['ArrowLeft'] ||dpadState['l']) moveDir.addScaledVector(rgt,-1);
   if(keys['KeyD']||keys['ArrowRight']||dpadState['r']) moveDir.addScaledVector(rgt, 1);
   if(moveDir.lengthSq()>0) moveDir.normalize();
+  const prevX=camera.position.x, prevZ=camera.position.z;
   camera.position.addScaledVector(moveDir, player.speed*dt);
+
+  // Barrier check — reject move if new position is inside a no-go zone
+  if(isInsideBarrier(camera.position.x, camera.position.z)){
+    camera.position.x=prevX;
+    camera.position.z=prevZ;
+  }
 
   // Terrain follow
   const gY=eyeHeight(camera.position.x,camera.position.z);
@@ -748,7 +778,7 @@ function animate(){
       `Y    ${p.y.toFixed(2)}\n`+
       `Z    ${p.z.toFixed(2)}\n`+
       `GND  ${groundY(p.x,p.z).toFixed(2)}\n`+
-      `YAW  ${(player.yaw*180/Math.PI).toFixed(1)}°\n`+
+      `YAW  ${(((player.yaw*180/Math.PI)%360+360)%360).toFixed(1)}°\n`+
       `LOC  ${currentLocKey||'—'}`;
   }
 
