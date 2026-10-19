@@ -12,15 +12,17 @@ const MoriaDoors = {
     fogDensity:       0.014,
     fogType:          'exponential',
     skyColor:         0x010306,
-    ambientColor:     0x050a12,
-    ambientIntensity: 1.2,
-    moonColor:        0x3a5070,
-    moonIntensity:    0.28,
+    ambientColor:     0x0d1a28,
+    ambientIntensity: 1.6,
+    moonColor:        0x4a6888,
+    moonIntensity:    0.38,
     moonPosition:     { x: -120, y: 160, z: 80 },
     showStars:        true,
     extraLights: [
-      // Faint cold fill from the east — reflected off the tarn
-      { color: 0x1a2a3a, intensity: 0.18, x: 80, y: 40, z: -20 },
+      // Cold fill from east cliff face
+      { color: 0x1a2a3a, intensity: 0.28, x: 80, y: 40, z: -20 },
+      // Tarn surface reflection — low, grazing, slightly blue-silver
+      { color: 0x1e3050, intensity: 0.32, x: -10, y: 2, z: 10 },
     ],
   },
 
@@ -87,14 +89,14 @@ const MoriaDoors = {
     const n = noise2d(vx * 0.15, vz * 0.15);
     const n2 = noise2d(vx * 0.41, vz * 0.37);
 
-    // Base: very dark blue-grey slate
-    const slate  = [0.09, 0.10, 0.13];
+    // Base: blue-grey slate — bright enough to read under moonlight
+    const slate  = [0.18, 0.20, 0.26];
     // Occasional darker seam
-    const seam   = [0.04, 0.05, 0.07];
-    // Pool edge: wet dark rock
-    const wet    = [0.05, 0.07, 0.10];
-    // Lichen patches
-    const lichen = [0.12, 0.14, 0.09];
+    const seam   = [0.09, 0.10, 0.14];
+    // Pool edge: wet dark rock — still darker but visible
+    const wet    = [0.10, 0.13, 0.19];
+    // Lichen patches — warmer grey-green, clearly distinct
+    const lichen = [0.22, 0.26, 0.16];
 
     // Pool proximity
     const px = vx - (-10), pz = vz - 10;
@@ -151,37 +153,41 @@ const MoriaDoors = {
   // ─── Lore ─────────────────────────────────────────────────────────────────
   lorePoints: [
     {
-      pos:    { x: 0, z: -14 },
-      radius: 7,
-      text:   '"The Doors of Durin, Lord of Moria. Speak, friend, and enter."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 4',
-    },
-    {
-      pos:    { x: -10, z: 10 },
+      // First stop on the ledge path — southern approach, pool just coming into view
+      pos:    { x: 11, z: 44 },
       radius: 6,
-      text:   '"Before them, at the foot of a steep fall of rock, lay the dark still water of the Mirrormere, or Kheled-zâram in the Dwarvish tongue. Out of the shadows the doors stood; invisible, not a crack or hinge showing."',
+      text:   '"The road climbed on. And now they could see the elven letters on the cliff face ahead, and the dark water lying still at its feet."',
       cite:   '— The Fellowship of the Ring, Book II, Ch. 4',
     },
     {
-      pos:    { x: 11, z: 40 },
-      radius: 5,
-      text:   '"Long lists of their labours and their wars were graven on the rock. But all that could be read was: HERE ARE THE HALLS OF THE DWARVES. DURIN\'S FOLK. BUILT IN THE DEEPS OF TIME."',
+      // Mid-ledge — pool is beside the player to the west
+      pos:    { x: 11, z: 22 },
+      radius: 6,
+      text:   '"Before them, at the foot of a steep fall of rock, lay the dark still water. Out of the shadows the doors stood; invisible, not a crack or hinge showing."',
       cite:   '— The Fellowship of the Ring, Book II, Ch. 4',
     },
     {
-      pos:    { x: -22, z: -8 },
+      // Near the base of the cliff — approaching the door apron
+      pos:    { x: 9, z: 2 },
       radius: 5,
-      text:   '"Gandalf stood before the rock and stared at the smooth grey face. Then slowly, under his gaze, the faint design glimmered like moonlight on misty water: an arch with two trees, and a star above."',
+      text:   '"Gandalf stood before the rock and stared at the smooth grey face. Slowly, under his gaze, the faint design glimmered like moonlight on misty water: an arch with two trees, and a star above."',
+      cite:   '— The Fellowship of the Ring, Book II, Ch. 4',
+    },
+    {
+      // At the door threshold itself
+      pos:    { x: 2, z: -14 },
+      radius: 6,
+      text:   '"The Doors of Durin, Lord of Moria. Speak, friend, and enter."',
       cite:   '— The Fellowship of the Ring, Book II, Ch. 4',
     },
   ],
 
   // ─── Player positions ─────────────────────────────────────────────────────
-  start: { x: 11, z: 60, yaw: Math.PI },   // facing north toward the cliff
+  start: { x: 11, z: 55, yaw: 0 },   // facing north toward the cliff
 
   arrivals: {
-    eregion:       { x: 11, z: 62, yaw: Math.PI },       // from south
-    'moria-bridge':{ x:  0, z: -20, yaw: Math.PI * 0.5 }, // emerging from inside
+    eregion:       { x: 11, z: 55, yaw: 0 },              // arriving from south, facing north
+    'moria-bridge':{ x:  0, z: -20, yaw: Math.PI },       // emerging from inside, facing south
   },
 
   boundary: 90,
@@ -189,14 +195,13 @@ const MoriaDoors = {
   // ─── Transitions ──────────────────────────────────────────────────────────
   transitions: [
     {
-      // South: back to Eregion
-      trigger: { x: 11, z: 74, radius: 8 },
+      // South: back to Eregion — trigger is well behind spawn so player can't stumble in
+      trigger: { x: 11, z: 82, radius: 6 },
       to: 'eregion',
     },
     {
       // North: through the open doors into Moria
-      // Only active when doors are open — gating logic handled via doorsOpen flag
-      trigger: { x: 0, z: -20, radius: 6 },
+      trigger: { x: 0, z: -22, radius: 6 },
       to: 'moria-bridge',
     },
   ],
@@ -395,31 +400,6 @@ const MoriaDoors = {
       inscriptionGroup.add(rm);
     }
 
-    // Two trees flanking the door (stylised branching lines)
-    function addTree(cx, treeY) {
-      // Trunk
-      const trunk = new THREE.Mesh(
-        new THREE.BoxGeometry(0.22, 3.0, 0.18), matInscription);
-      trunk.position.set(cx, treeY + 1.4, doorZ - 0.9);
-      inscriptionGroup.add(trunk);
-      // Branches — 5 per side
-      const branchAngles = [0.4, 0.65, 0.9, 1.1, 1.3];
-      for (const ba of branchAngles) {
-        for (const side of [-1, 1]) {
-          const blen = (1.5 - ba * 0.6) * 0.8;
-          const b = new THREE.Mesh(
-            new THREE.BoxGeometry(blen, 0.16, 0.15), matInscription);
-          const bx = cx + side * Math.cos(ba) * blen * 0.5;
-          const by = treeY + ba * 1.2 + 0.4;
-          b.position.set(bx, by, doorZ - 0.9);
-          b.rotation.z = side * ba;
-          inscriptionGroup.add(b);
-        }
-      }
-    }
-    addTree(-1.8, doorY - doorH / 2 + 0.5);
-    addTree( 1.8, doorY - doorH / 2 + 0.5);
-
     scene.add(inscriptionGroup);
 
     // ── Door Leaves (the two physical stone halves) ───────────────────────────
@@ -432,13 +412,15 @@ const MoriaDoors = {
     const doorRight = new THREE.Mesh(doorLeafGeo, matDoorLeaf);
 
     // Pivot the doors at their outer edge
-    // We'll parent each leaf to a pivot group so rotation opens them outward
     const pivotLeft  = new THREE.Object3D();
     const pivotRight = new THREE.Object3D();
 
     pivotLeft.position.set(doorX - doorW / 2, doorY, doorZ);
     pivotRight.position.set(doorX + doorW / 2, doorY, doorZ);
 
+    // Leaf local x: centre of each half-leaf relative to its pivot
+    // pivotLeft  pivot is at x = -doorW/2 world; leaf centre is doorW/4 further right → local +doorW/4
+    // pivotRight pivot is at x = +doorW/2 world; leaf centre is doorW/4 further left  → local -doorW/4
     doorLeft.position.set(doorW / 4, 0, 0);
     doorRight.position.set(-doorW / 4, 0, 0);
 
@@ -447,14 +429,46 @@ const MoriaDoors = {
     scene.add(pivotLeft);
     scene.add(pivotRight);
 
-    // Leaf inscription overlay (glowing runes on the door surface itself)
-    const leafGlyphGeo = new THREE.BoxGeometry(2.4, 6.0, 0.22);
-    const leafGlyphL   = new THREE.Mesh(leafGlyphGeo, matInscriptionLeaf);
-    const leafGlyphR   = new THREE.Mesh(leafGlyphGeo, matInscriptionLeaf);
-    leafGlyphL.position.set(doorW / 4,  0, 0.3);
-    leafGlyphR.position.set(-doorW / 4, 0, 0.3);
-    pivotLeft.add(leafGlyphL);
-    pivotRight.add(leafGlyphR);
+    // ── Tree glyphs on the door leaves (local coords, move with the doors) ────
+    // addLeafTree: lx = local x from pivot, leafDir = which pivot (+1 right leaf, -1 left leaf)
+    // The leaf surface faces +Z in local space; glyphs sit at local z = +0.25 (front face)
+    function addLeafTree(pivot, lx, leafHalfW) {
+      // lx is measured from the pivot origin; bottom of tree starts at local y = -doorH/2 + 0.6
+      const treeBottomY = -doorH / 2 + 0.6;
+      const trunkH = 2.8;
+      const glyphZ  = 0.25;  // just proud of the door face
+
+      // Trunk
+      const trunk = new THREE.Mesh(
+        new THREE.BoxGeometry(0.20, trunkH, 0.14), matInscriptionLeaf);
+      trunk.position.set(lx, treeBottomY + trunkH / 2, glyphZ);
+      pivot.add(trunk);
+
+      // Branches (grow toward centre of each leaf, i.e. inward)
+      const branchAngles = [0.42, 0.68, 0.92, 1.12, 1.28];
+      for (const ba of branchAngles) {
+        const blen = (1.4 - ba * 0.55) * 0.85;
+        // Both sides of the trunk
+        for (const side of [-1, 1]) {
+          const b = new THREE.Mesh(
+            new THREE.BoxGeometry(blen, 0.14, 0.12), matInscriptionLeaf);
+          const bx = lx + side * Math.cos(ba) * blen * 0.5;
+          const by = treeBottomY + ba * 1.15 + 0.5;
+          b.position.set(bx, by, glyphZ);
+          b.rotation.z = side * ba;
+          pivot.add(b);
+        }
+      }
+    }
+
+    // Left door: pivot at world x = doorX - doorW/2; leaf centre is at local x = +doorW/4
+    // Put tree at local x = doorW/4 (centre of leaf face)
+    addLeafTree(pivotLeft,  doorW / 4,  doorW / 4);
+    // Right door: pivot at world x = doorX + doorW/2; leaf centre is at local x = -doorW/4
+    addLeafTree(pivotRight, -doorW / 4, doorW / 4);
+
+    // Collect all inscription leaf meshes for refs (we animate via matInscriptionLeaf)
+    // Nothing extra needed — the shared material handles glow for both trees and leaf glyphs.
 
     // ── Ambient door glow light (proximity-activated, starts at 0) ───────────
     const doorGlow = new THREE.PointLight(0x4466cc, 0, 18);
@@ -546,8 +560,6 @@ const MoriaDoors = {
       matInscriptionLeaf,
       pivotLeft,
       pivotRight,
-      leafGlyphL,
-      leafGlyphR,
       water,
       rippleRing,
       rippleMat,
