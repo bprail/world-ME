@@ -1,119 +1,116 @@
 // moria-doors.js — Doors of Durin (West-gate of Moria)
 // Sequence: Eregion ← [moria-doors] → Moria (Durin's Bridge)
-// Night scene: dark mountain tarn, narrow cliff-side path, glowing inscription
+// Night scene: dark mountain tarn, narrow cliff-side path, glowing inscription,
+//              antechamber revealed when doors swing open.
 
 const MoriaDoors = {
   name: 'The Doors of Durin',
   subtitle: 'West-gate of Moria · The Walls of Moria',
 
-  // ─── Atmosphere ──────────────────────────────────────────────────────────
+  // ─── Atmosphere ────────────────────────────────────────────────────────────
   atmosphere: {
     fogColor:         0x010408,
-    fogDensity:       0.014,
+    fogDensity:       0.013,
     fogType:          'exponential',
     skyColor:         0x010306,
     ambientColor:     0x0d1a28,
     ambientIntensity: 1.6,
-    moonColor:        0x4a6888,
-    moonIntensity:    0.38,
-    moonPosition:     { x: -120, y: 160, z: 80 },
+    // Moon comes from the south-east, low angle, so it rakes across
+    // the north-facing cliff wall and the door face directly.
+    moonColor:        0x5a7899,
+    moonIntensity:    0.55,
+    moonPosition:     { x: 40, y: 80, z: 120 },   // south-east, low
     showStars:        true,
     extraLights: [
-      // Cold fill from east cliff face
-      { color: 0x1a2a3a, intensity: 0.28, x: 80, y: 40, z: -20 },
-      // Tarn surface reflection — low, grazing, slightly blue-silver
-      { color: 0x1e3050, intensity: 0.32, x: -10, y: 2, z: 10 },
+      // Secondary cold fill from west — bounced off the tarn surface
+      { color: 0x1a2a40, intensity: 0.30, x: -60, y: 30, z: 20 },
+      // Dedicated door face light — aimed from south, low, to guarantee
+      // the cliff and inscription are lit even when fog is thick
+      { color: 0x3a5070, intensity: 0.40, x: 0, y: 25, z: 60 },
     ],
   },
 
-  // ─── Terrain ─────────────────────────────────────────────────────────────
-  // Layout:
-  //   +Z (south) = player arrives from Eregion
-  //   -Z (north) = cliff face / doors
-  //   The tarn (Mirrormere's dark cousin, the pool of Moria) occupies centre-west
-  //   A narrow ledge path runs along the east side of the pool
-  //   Sheer cliff rises to the east; the mountain wall is to the north
+  // ─── Terrain ───────────────────────────────────────────────────────────────
+  // Layout (bird's eye, north = -Z):
+  //
+  //   West  |  tarn (large, x=-5...-55, z=-10...40)  |  ledge (x=8..14)  |  East cliff
+  //   South approach from Eregion at z=+60
+  //   North cliff face at z≈-18 with the doors centred at x=0
+  //   Antechamber carved behind the cliff: z=-18 to -42, x=-8 to +8
+  //
+  // The terrain mesh naturally rises north (cliffRise) and east (shoulderRise).
+  // The antechamber is punched flat in the terrain north of the doors —
+  // actual floor/ceiling geometry is added in buildScene.
 
   hillHeight(x, z) {
     const fbm   = window.api_fbm;
     const noise = window.api_noise2d;
 
-    // --- pool basin (west-centre, radius ~28, centre at x=-10, z=10) ---
-    const px = x - (-10), pz = z - 10;
+    // ── large tarn basin (centre x=-14, z=16, radius 42) ─────────────────────
+    const px = x - (-14), pz = z - 16;
     const poolDist = Math.sqrt(px * px + pz * pz);
-    const poolFloor = -3.2;                     // deep basin
-    const poolEdge  = 28;
+    const poolFloor = -3.4;
+    const poolEdge  = 42;
     const poolBlend = Math.max(0, 1 - poolDist / poolEdge);
     const poolDip   = poolBlend * poolBlend * poolBlend * poolFloor;
 
-    // --- cliff face terrain (rises steeply to the north) ---
-    // Mountain wall: tall cliff from z=-10 northward, centred around x=-5
-    const cliffBase = -12;
+    // ── north cliff rise ──────────────────────────────────────────────────────
+    const cliffBase = -14;
     const cliffRise = z < cliffBase
-      ? Math.pow(Math.abs(z - cliffBase) * 0.22, 1.6) * 1.4
+      ? Math.pow(Math.abs(z - cliffBase) * 0.20, 1.5) * 1.6
       : 0;
 
-    // --- east cliff shoulder (rises steeply for x > 20) ---
-    const shoulderRise = x > 18
-      ? Math.pow((x - 18) * 0.18, 1.8) * 2.2
+    // ── east cliff shoulder ───────────────────────────────────────────────────
+    const shoulderRise = x > 20
+      ? Math.pow((x - 20) * 0.16, 1.8) * 2.4
       : 0;
 
-    // --- rocky base texture ---
+    // ── rocky base noise ──────────────────────────────────────────────────────
     const rough = fbm(x * 0.09, z * 0.09) * 1.6
                 + fbm(x * 0.21, z * 0.21) * 0.55
                 + noise(x * 0.38, z * 0.38) * 0.22;
 
-    // --- the narrow ledge path stays relatively flat ---
-    // Ledge runs along x ~ 8..14, z from -5 to 55
-    const ledgeCx = 11;
-    const ledgeDx = Math.abs(x - ledgeCx);
-    const ledgeZ  = z > -8 && z < 58 ? 1 : 0;
-    const ledgeFlat = ledgeZ * Math.max(0, 1 - ledgeDx / 4) * (-rough * 0.3);
-
-    // --- southern approach: gently slopes down toward the tarn ---
+    // ── ledge path: flat strip x≈11, z=-6..58 ────────────────────────────────
+    const ledgeDx = Math.abs(x - 11);
     const southSlope = z > 20 ? (z - 20) * 0.04 : 0;
 
-    let h = rough * 0.5 + cliffRise + shoulderRise + poolDip + southSlope + ledgeFlat;
+    let h = rough * 0.5 + cliffRise + shoulderRise + poolDip + southSlope;
 
-    // Flatten the ledge path itself
-    if (ledgeDx < 3.5 && z > -6 && z < 56) {
-      const groundRef = rough * 0.5 + southSlope;
-      h = groundRef + 0.4;  // slightly raised ledge
+    if (ledgeDx < 3.5 && z > -6 && z < 58) {
+      h = rough * 0.5 + southSlope + 0.4;
+    }
+
+    // ── antechamber zone: keep terrain flat so walkable sits cleanly ──────────
+    // x=-10..10, z=-18..-44 → force terrain to a low flat value
+    if (x > -10 && x < 10 && z < -18 && z > -44) {
+      h = 0.2;
     }
 
     return h;
   },
 
   vertexColor(vx, vy, vz, noise2d, lerp) {
-    // Dark wet slate / schist with occasional lichen
-    const n = noise2d(vx * 0.15, vz * 0.15);
+    const n  = noise2d(vx * 0.15, vz * 0.15);
     const n2 = noise2d(vx * 0.41, vz * 0.37);
 
-    // Base: blue-grey slate — bright enough to read under moonlight
     const slate  = [0.18, 0.20, 0.26];
-    // Occasional darker seam
     const seam   = [0.09, 0.10, 0.14];
-    // Pool edge: wet dark rock — still darker but visible
     const wet    = [0.10, 0.13, 0.19];
-    // Lichen patches — warmer grey-green, clearly distinct
     const lichen = [0.22, 0.26, 0.16];
 
-    // Pool proximity
-    const px = vx - (-10), pz = vz - 10;
+    const px = vx - (-14), pz = vz - 16;
     const poolDist = Math.sqrt(px * px + pz * pz);
-    const wetness  = Math.max(0, 1 - poolDist / 32);
+    const wetness  = Math.max(0, 1 - poolDist / 46);
 
     let r = lerp(slate[0], seam[0], n2 * 0.5);
     let g = lerp(slate[1], seam[1], n2 * 0.5);
     let b = lerp(slate[2], seam[2], n2 * 0.5);
 
-    // Wet darkening near pool
     r = lerp(r, wet[0], wetness * 0.7);
     g = lerp(g, wet[1], wetness * 0.7);
     b = lerp(b, wet[2], wetness * 0.7);
 
-    // Lichen on higher ground away from pool
-    if (vy > 1.2 && n > 0.65 && poolDist > 20) {
+    if (vy > 1.2 && n > 0.65 && poolDist > 28) {
       const lf = (n - 0.65) / 0.35;
       r = lerp(r, lichen[0], lf * 0.5);
       g = lerp(g, lichen[1], lf * 0.5);
@@ -123,58 +120,49 @@ const MoriaDoors = {
     return [r, g, b];
   },
 
-  // Narrow path along the ledge east of the tarn, approaching the cliff face
   onPath(x, z) {
-    // Path centreline: x=11, runs z=60 (south approach) down to z=-5 (doors)
-    // Then a slight jog west to x=2 as it reaches the cliff face (z=-5 to -12)
     let cx;
     if (z >= -5) {
       cx = 11;
     } else {
-      // Curve gently toward the door centreline (x≈0) as z → -12
-      const t = Math.max(0, Math.min(1, (-5 - z) / 7));
-      cx = lerp2(11, 0, t);
+      const t = Math.max(0, Math.min(1, (-5 - z) / 8));
+      cx = 11 + (0 - 11) * t;
     }
-    function lerp2(a, b, t) { return a + (b - a) * t; }
     const dx = Math.abs(x - cx);
     return Math.max(0, 1 - dx / 2.5);
   },
 
   pathWaypoints: [
-    [11,  68],   // arrives from Eregion to the south
+    [11,  68],
     [11,  48],
     [11,  28],
     [11,  10],
     [11,  -2],
-    [ 6,  -8],   // gentle curve toward door centre
-    [ 0, -14],   // path ends at the door
+    [ 6,  -8],
+    [ 0, -14],
   ],
 
-  // ─── Lore ─────────────────────────────────────────────────────────────────
+  // ─── Lore ──────────────────────────────────────────────────────────────────
   lorePoints: [
     {
-      // First stop on the ledge path — southern approach, pool just coming into view
       pos:    { x: 11, z: 44 },
       radius: 6,
-      text:   '"The road climbed on. And now they could see the elven letters on the cliff face ahead, and the dark water lying still at its feet."',
+      text:   '"The road climbed on. And now they could see the dark water lying still at the foot of the cliff, and beyond it the smooth grey face of the mountain wall."',
       cite:   '— The Fellowship of the Ring, Book II, Ch. 4',
     },
     {
-      // Mid-ledge — pool is beside the player to the west
       pos:    { x: 11, z: 22 },
       radius: 6,
       text:   '"Before them, at the foot of a steep fall of rock, lay the dark still water. Out of the shadows the doors stood; invisible, not a crack or hinge showing."',
       cite:   '— The Fellowship of the Ring, Book II, Ch. 4',
     },
     {
-      // Near the base of the cliff — approaching the door apron
       pos:    { x: 9, z: 2 },
       radius: 5,
       text:   '"Gandalf stood before the rock and stared at the smooth grey face. Slowly, under his gaze, the faint design glimmered like moonlight on misty water: an arch with two trees, and a star above."',
       cite:   '— The Fellowship of the Ring, Book II, Ch. 4',
     },
     {
-      // At the door threshold itself
       pos:    { x: 2, z: -14 },
       radius: 6,
       text:   '"The Doors of Durin, Lord of Moria. Speak, friend, and enter."',
@@ -182,51 +170,52 @@ const MoriaDoors = {
     },
   ],
 
-  // ─── Player positions ─────────────────────────────────────────────────────
-  start: { x: 11, z: 55, yaw: 0 },   // facing north toward the cliff
+  // ─── Player positions ───────────────────────────────────────────────────────
+  start: { x: 11, z: 55, yaw: 0 },
 
   arrivals: {
-    eregion:       { x: 11, z: 55, yaw: 0 },              // arriving from south, facing north
-    'moria-bridge':{ x:  0, z: -20, yaw: Math.PI },       // emerging from inside, facing south
+    eregion:        { x: 11, z: 55, yaw: 0 },
+    'moria-bridge': { x:  0, z: -38, yaw: Math.PI },  // deep inside antechamber
   },
 
-  boundary: 90,
+  boundary: 95,
 
-  // ─── Transitions ──────────────────────────────────────────────────────────
+  // ─── Transitions ────────────────────────────────────────────────────────────
   transitions: [
     {
-      // South: back to Eregion — trigger is well behind spawn so player can't stumble in
       trigger: { x: 11, z: 82, radius: 6 },
       to: 'eregion',
     },
     {
-      // North: through the open doors into Moria
-      trigger: { x: 0, z: -22, radius: 6 },
+      // Trigger well inside the antechamber — player must walk through the open doors
+      trigger: { x: 0, z: -40, radius: 5 },
       to: 'moria-bridge',
     },
   ],
 
-  // ─── Walkables ────────────────────────────────────────────────────────────
+  // ─── Walkables ──────────────────────────────────────────────────────────────
   walkables: [
-    // Narrow ledge path along east side of pool (keeps player above the waterline)
+    // Ledge path east of tarn
     { x: 11, z: 42, yaw: 0, length: 30, width: 5, yStart: 0.45, yEnd: 0.55 },
     { x: 11, z: 18, yaw: 0, length: 28, width: 5, yStart: 0.40, yEnd: 0.45 },
     { x: 11, z: -2, yaw: 0, length: 16, width: 5, yStart: 0.40, yEnd: 0.42 },
-    // Gentle curve west toward the doors
+    // Curve west to door apron
     { x: 5.5, z: -8,  yaw: 0.38, length: 14, width: 4.5, yStart: 0.40, yEnd: 0.38 },
-    // Apron before the doors
-    { x: 0,   z: -15, yaw: 0, length: 6, width: 8, yStart: 0.38, yEnd: 0.38 },
+    // Apron directly in front of the doors
+    { x: 0, z: -15, yaw: 0, length: 6, width: 9, yStart: 0.38, yEnd: 0.38 },
+    // ── Antechamber floor (flat, slightly above terrain zero) ─────────────────
+    // Runs from just behind the door plane (z=-18) back to z=-44
+    // Width 16 spans x=-8 to x=+8, matching the chamber walls in buildScene
+    { x: 0, z: -31, yaw: 0, length: 26, width: 16, yStart: 0.35, yEnd: 0.35 },
   ],
 
-  // ─── Scene ────────────────────────────────────────────────────────────────
+  // ─── Scene ──────────────────────────────────────────────────────────────────
   buildScene(THREE, scene, groundY, MAT) {
 
-    // ── helpers ──────────────────────────────────────────────────────────────
-    function addMesh(geo, mat, x, y, z, rx, ry, rz, sx, sy, sz) {
+    function addMesh(geo, mat, x, y, z, rx, ry, rz) {
       const m = new THREE.Mesh(geo, mat);
       m.position.set(x, y, z);
       if (rx || ry || rz) m.rotation.set(rx || 0, ry || 0, rz || 0);
-      if (sx !== undefined) m.scale.set(sx, sy || sx, sz || sx);
       m.castShadow    = true;
       m.receiveShadow = true;
       scene.add(m);
@@ -246,328 +235,346 @@ const MoriaDoors = {
     const matDoorLeaf = new THREE.MeshStandardMaterial({
       color: 0x141820, roughness: 0.85, metalness: 0.12,
     });
-    // Inscription glyph material — starts invisible, lit by proximity
+    const matChamber = new THREE.MeshStandardMaterial({
+      color: 0x080a0d, roughness: 0.97, metalness: 0.03,
+      side: THREE.BackSide,   // cave interior — normals face inward
+    });
+    const matChamberFloor = new THREE.MeshStandardMaterial({
+      color: 0x0c0e12, roughness: 0.95, metalness: 0.04,
+    });
     const matInscription = new THREE.MeshStandardMaterial({
-      color:     0xb8d4ff,
-      emissive:  new THREE.Color(0x3a6aaa),
-      emissiveIntensity: 0,
-      roughness: 0.3,
-      metalness: 0.4,
-      transparent: true,
-      opacity: 0,
+      color: 0xb8d4ff, emissive: new THREE.Color(0x3a6aaa),
+      emissiveIntensity: 0, roughness: 0.3, metalness: 0.4,
+      transparent: true, opacity: 0,
     });
     const matInscriptionLeaf = new THREE.MeshStandardMaterial({
-      color:     0x88aadd,
-      emissive:  new THREE.Color(0x2255aa),
-      emissiveIntensity: 0,
-      roughness: 0.35,
-      metalness: 0.3,
-      transparent: true,
-      opacity: 0,
+      color: 0x88aadd, emissive: new THREE.Color(0x2255aa),
+      emissiveIntensity: 0, roughness: 0.35, metalness: 0.3,
+      transparent: true, opacity: 0,
     });
-
-    // Water material
     const matWater = new THREE.MeshStandardMaterial({
-      color: 0x020508,
-      roughness: 0.02,
-      metalness: 0.0,
-      transparent: true,
-      opacity: 0.88,
+      color: 0x020810, roughness: 0.03, metalness: 0.0,
+      transparent: true, opacity: 0.90,
     });
-
-    // Debris/rubble
     const matRubble = new THREE.MeshStandardMaterial({
       color: 0x0d1018, roughness: 0.97, metalness: 0.02,
     });
 
-    // ── Tarn (the black pool) ─────────────────────────────────────────────────
-    // Flat disc centred at x=-10, z=10, just below terrain zero
-    const waterGeo = new THREE.CircleGeometry(27, 40);
+    // ── Large tarn ────────────────────────────────────────────────────────────
+    // Ellipse approximated as a scaled circle: long N-S, centre at x=-14, z=16
+    const waterGeo = new THREE.CircleGeometry(1, 52);
     const water    = new THREE.Mesh(waterGeo, matWater);
     water.rotation.x = -Math.PI / 2;
-    water.position.set(-10, -3.05, 10);
+    water.scale.set(42, 1, 50);   // 42 wide (E-W), 50 deep (N-S)
+    water.position.set(-14, -3.1, 16);
     water.receiveShadow = true;
     scene.add(water);
 
-    // Shallow mist plane above the water
+    // Mist plane above water
     const mistMat = new THREE.MeshStandardMaterial({
-      color: 0x090d16, transparent: true, opacity: 0.18,
-      roughness: 1, metalness: 0,
-      depthWrite: false,
+      color: 0x060d18, transparent: true, opacity: 0.15,
+      roughness: 1, metalness: 0, depthWrite: false,
     });
-    const mistGeo = new THREE.CircleGeometry(29, 36);
-    const mist    = new THREE.Mesh(mistGeo, mistMat);
+    const mist = new THREE.Mesh(new THREE.CircleGeometry(1, 44), mistMat);
     mist.rotation.x = -Math.PI / 2;
-    mist.position.set(-10, -2.6, 10);
+    mist.scale.set(44, 1, 52);
+    mist.position.set(-14, -2.6, 16);
     scene.add(mist);
 
-    // ── The Cliff Face / Mountain Wall ────────────────────────────────────────
-    // A massive dark slab behind the doors (north face, z ≈ -18)
-    const cliffGeo = new THREE.BoxGeometry(80, 90, 12);
-    const cliff    = addMesh(cliffGeo, matCliff, -5, 38, -24);
+    // ── Cliff face — main mountain wall slab ──────────────────────────────────
+    // Wide enough to hide the scene edge; centred behind the doors at z=-22
+    // Cliff is split: a lower section (full width) + upper section, so the door
+    // opening is a real gap and not just painted on.
+    const cliffW  = 90;
+    const cliffH  = 80;
 
-    // Side buttress walls (east and west flanking cliff)
-    const buttressGeo = new THREE.BoxGeometry(14, 70, 50);
-    addMesh(buttressGeo, matCliff, -38, 30, -8);   // west
-    addMesh(buttressGeo, matCliff,  28, 30, -8);   // east
+    // Lower wall — fills everything except the door gap
+    // Left of door gap
+    addMesh(new THREE.BoxGeometry((cliffW / 2) - 3.2 - 1.8, cliffH, 10),
+      matCliff, -(cliffW / 4) - 1.8 + 3.2 / 2, cliffH / 2 - 2, -22);
+    // Right of door gap
+    addMesh(new THREE.BoxGeometry((cliffW / 2) - 3.2 - 1.8, cliffH, 10),
+      matCliff,  (cliffW / 4) + 1.8 - 3.2 / 2, cliffH / 2 - 2, -22);
+    // Above the door arch (full width, higher up)
+    addMesh(new THREE.BoxGeometry(cliffW, cliffH - 14, 10),
+      matCliff, 0, cliffH / 2 - 2 + 14, -22);
 
-    // ── The Arch of the Doors ─────────────────────────────────────────────────
-    // Door opening is ~6 wide, ~10 tall, centred at x=0, z=-17
-    // We carve the appearance with geometry layering (no CSG needed — just frame pieces)
+    // East and west buttress walls flanking the cliff
+    addMesh(new THREE.BoxGeometry(18, 70, 55), matCliff, -48, 30, -10);
+    addMesh(new THREE.BoxGeometry(18, 70, 55), matCliff,  48, 30, -10);
 
-    const doorX  =  0;
-    const doorZ  = -17;
-    const doorW  =  6.4;
-    const doorH  = 10.2;
-    const doorY  = groundY(doorX, doorZ) + doorH / 2;
+    // ── Antechamber ───────────────────────────────────────────────────────────
+    // A rectangular cave room behind the doors, x=-8..+8, z=-18..-44, h=10
+    // Walls use BackSide material so they appear as an interior space.
+    // The door frame and closed doors block the view; opening reveals the chamber.
 
-    // Frame: top lintel slab
-    addMesh(new THREE.BoxGeometry(doorW + 3.6, 1.4, 2), matDoorFrame,
-      doorX, doorY + doorH / 2 + 0.5, doorZ);
+    const chamW = 16;   // east-west
+    const chamD = 26;   // north-south depth  (z=-18 to z=-44)
+    const chamH = 10;   // interior height
+    const chamCX = 0;
+    const chamCZ = -31; // centre of chamber depth
+    const chamFloorY = 0.35;
+    const chamCeilY  = chamFloorY + chamH;
 
-    // Frame: side jambs
-    addMesh(new THREE.BoxGeometry(1.6, doorH + 2, 2), matDoorFrame,
-      doorX - doorW / 2 - 0.9, doorY, doorZ);
-    addMesh(new THREE.BoxGeometry(1.6, doorH + 2, 2), matDoorFrame,
-      doorX + doorW / 2 + 0.9, doorY, doorZ);
+    // Floor slab (visible top face)
+    addMesh(new THREE.BoxGeometry(chamW, 0.5, chamD),
+      matChamberFloor, chamCX, chamFloorY - 0.25, chamCZ);
 
-    // Arch curve (approximated with cylinder slices)
-    const archR  = doorW / 2 + 0.2;
-    const archCY = doorY + doorH / 2;
+    // Ceiling
+    addMesh(new THREE.BoxGeometry(chamW + 0.4, 0.6, chamD + 0.4),
+      matCliff, chamCX, chamCeilY + 0.3, chamCZ);
+
+    // North back wall (far end of chamber)
+    addMesh(new THREE.BoxGeometry(chamW, chamH, 0.8),
+      matCliff, chamCX, chamFloorY + chamH / 2, -44);
+
+    // East wall
+    addMesh(new THREE.BoxGeometry(0.8, chamH, chamD),
+      matCliff, chamCX + chamW / 2, chamFloorY + chamH / 2, chamCZ);
+
+    // West wall
+    addMesh(new THREE.BoxGeometry(0.8, chamH, chamD),
+      matCliff, chamCX - chamW / 2, chamFloorY + chamH / 2, chamCZ);
+
+    // South wall of chamber = the cliff face itself (already present).
+    // We add a thin inner face at z=-18 with the door hole cut out:
+    // Left panel
+    addMesh(new THREE.BoxGeometry(chamW / 2 - 3.2, chamH, 0.7),
+      matCliff, chamCX - chamW / 4 - 1.6, chamFloorY + chamH / 2, -18);
+    // Right panel
+    addMesh(new THREE.BoxGeometry(chamW / 2 - 3.2, chamH, 0.7),
+      matCliff, chamCX + chamW / 4 + 1.6, chamFloorY + chamH / 2, -18);
+    // Lintel above door opening on inner face
+    addMesh(new THREE.BoxGeometry(chamW, chamH - 10.2, 0.7),
+      matCliff, chamCX, chamFloorY + chamH - (chamH - 10.2) / 2, -18);
+
+    // Scattered rubble on chamber floor
+    const chamberRubble = [
+      [-3, -22, 0.28], [2, -25, 0.22], [-5, -30, 0.35],
+      [4, -34, 0.25],  [-2, -38, 0.30],[3, -28, 0.20],
+      [-4, -40, 0.26], [5, -22, 0.18],
+    ];
+    for (const [rx, rz, rr] of chamberRubble) {
+      addMesh(new THREE.SphereGeometry(rr, 8, 6), matRubble,
+        rx, chamFloorY + rr * 0.25, rz);
+    }
+
+    // Dim light deep in the chamber — just enough to show the space
+    // (faint blue-green, as if phosphorescent lichen or distant Moria glow)
+    const chamberLight = new THREE.PointLight(0x0a1a10, 0.35, 30);
+    chamberLight.position.set(0, chamFloorY + 3, -36);
+    scene.add(chamberLight);
+
+    // ── Door frame / arch ─────────────────────────────────────────────────────
+    const doorX = 0, doorZ = -17;
+    const doorW = 6.4, doorH = 10.2;
+    const doorY = groundY(doorX, doorZ) + doorH / 2;
+
+    // Lintel
+    addMesh(new THREE.BoxGeometry(doorW + 3.6, 1.4, 2.4),
+      matDoorFrame, doorX, doorY + doorH / 2 + 0.5, doorZ);
+    // Side jambs
+    addMesh(new THREE.BoxGeometry(1.8, doorH + 2, 2.4),
+      matDoorFrame, doorX - doorW / 2 - 1.0, doorY, doorZ);
+    addMesh(new THREE.BoxGeometry(1.8, doorH + 2, 2.4),
+      matDoorFrame, doorX + doorW / 2 + 1.0, doorY, doorZ);
+
+    // Arch voussoirs
+    const archR   = doorW / 2 + 0.2;
+    const archCY  = doorY + doorH / 2;
     const archSegs = 10;
     for (let i = 0; i < archSegs; i++) {
       const a0 = Math.PI * (i / archSegs);
       const a1 = Math.PI * ((i + 1) / archSegs);
-      const ax  = Math.cos((a0 + a1) / 2) * archR;
-      const ay  = Math.sin((a0 + a1) / 2) * archR;
+      const am  = (a0 + a1) / 2;
+      const ax  = Math.cos(am) * archR;
+      const ay  = Math.sin(am) * archR;
       const len = archR * (a1 - a0) + 0.05;
-      const angle = -(a0 + a1) / 2 + Math.PI / 2;
-      const block = new THREE.BoxGeometry(len * 1.1, 1.2, 2);
-      const bm    = new THREE.Mesh(block, matDoorFrame);
+      const bm  = new THREE.Mesh(
+        new THREE.BoxGeometry(len * 1.1, 1.2, 2.4), matDoorFrame);
       bm.position.set(doorX - ax, archCY + ay, doorZ);
-      bm.rotation.z = -angle;
+      bm.rotation.z = -(am - Math.PI / 2);
       bm.castShadow = true;
       scene.add(bm);
     }
 
-    // ── Inscription glyphs (Tengwar stars, trees, arch outlines) ──────────────
-    // We build simple stand-in geometry for the glowing markings.
-    // Group that will be animated for glow intensity.
+    // ── Inscription on cliff wall (arch outline, runes, star) ─────────────────
     const inscriptionGroup = new THREE.Group();
 
-    // Arch outline (thin flat strips following the arch shape)
-    const archOutlineR = archR + 0.5;
-    const archOutlineSegs = 18;
-    for (let i = 0; i < archOutlineSegs; i++) {
-      const a0 = Math.PI * (i / archOutlineSegs);
-      const a1 = Math.PI * ((i + 1) / archOutlineSegs);
-      const ax  = Math.cos((a0 + a1) / 2) * archOutlineR;
-      const ay  = Math.sin((a0 + a1) / 2) * archOutlineR;
-      const len = archOutlineR * (a1 - a0) + 0.04;
-      const angle = -(a0 + a1) / 2 + Math.PI / 2;
-      const sliver = new THREE.BoxGeometry(len * 1.05, 0.22, 0.18);
-      const sm     = new THREE.Mesh(sliver, matInscription);
-      sm.position.set(doorX - ax, archCY + ay, doorZ - 0.9);
-      sm.rotation.z = -angle;
+    const archOutR  = archR + 0.55;
+    const archOutSg = 18;
+    for (let i = 0; i < archOutSg; i++) {
+      const a0 = Math.PI * (i / archOutSg);
+      const a1 = Math.PI * ((i + 1) / archOutSg);
+      const am  = (a0 + a1) / 2;
+      const ax  = Math.cos(am) * archOutR;
+      const ay  = Math.sin(am) * archOutR;
+      const len = archOutR * (a1 - a0) + 0.04;
+      const sm  = new THREE.Mesh(
+        new THREE.BoxGeometry(len * 1.05, 0.22, 0.18), matInscription);
+      sm.position.set(doorX - ax, archCY + ay, doorZ - 1.0);
+      sm.rotation.z = -(am - Math.PI / 2);
       inscriptionGroup.add(sm);
     }
 
-    // Inscription side lines (vertical beside the jambs)
-    for (let side of [-1, 1]) {
+    // Vertical rune strokes beside jambs
+    for (const side of [-1, 1]) {
       for (let i = 0; i < 6; i++) {
         const gy = doorY - doorH / 2 + 1 + i * 1.5;
-        const sliver = new THREE.BoxGeometry(0.18, 1.1, 0.18);
-        const sm     = new THREE.Mesh(sliver, matInscription);
-        sm.position.set(doorX + side * (doorW / 2 + 2.2), gy, doorZ - 0.9);
+        const sm = new THREE.Mesh(
+          new THREE.BoxGeometry(0.18, 1.1, 0.18), matInscription);
+        sm.position.set(doorX + side * (doorW / 2 + 2.4), gy, doorZ - 1.0);
         inscriptionGroup.add(sm);
       }
     }
 
-    // Star of Durin (seven-pointed — approximated with two overlapping diamonds)
-    const starY = archCY + archR + 1.4;
-    const starPoints = 7;
-    for (let i = 0; i < starPoints; i++) {
-      const a   = (i / starPoints) * Math.PI * 2 - Math.PI / 2;
+    // Star of Durin above arch
+    const starY = archCY + archOutR + 1.5;
+    const starPts = 7;
+    for (let i = 0; i < starPts; i++) {
+      const a   = (i / starPts) * Math.PI * 2 - Math.PI / 2;
       const len = i % 2 === 0 ? 1.1 : 0.65;
-      const ray = new THREE.BoxGeometry(0.16, len, 0.16);
-      const rm  = new THREE.Mesh(ray, matInscription);
+      const rm  = new THREE.Mesh(
+        new THREE.BoxGeometry(0.16, len, 0.16), matInscription);
       rm.position.set(
         doorX + Math.cos(a) * (len * 0.5 + 0.05),
         starY  + Math.sin(a) * (len * 0.5 + 0.05),
-        doorZ - 0.9
-      );
+        doorZ - 1.0);
       rm.rotation.z = a + Math.PI / 2;
       inscriptionGroup.add(rm);
     }
 
     scene.add(inscriptionGroup);
 
-    // ── Door Leaves (the two physical stone halves) ───────────────────────────
-    // Left and right halves, pivoted at x = ±doorW/2, z = doorZ
-    // They will swing open when the player is very close.
+    // ── Door leaves with tree glyphs ──────────────────────────────────────────
+    const doorLeafGeo = new THREE.BoxGeometry(doorW / 2, doorH, 0.45);
 
-    const doorLeafGeo = new THREE.BoxGeometry(doorW / 2, doorH, 0.4);
-
-    const doorLeft  = new THREE.Mesh(doorLeafGeo, matDoorLeaf);
-    const doorRight = new THREE.Mesh(doorLeafGeo, matDoorLeaf);
-
-    // Pivot the doors at their outer edge
     const pivotLeft  = new THREE.Object3D();
     const pivotRight = new THREE.Object3D();
-
     pivotLeft.position.set(doorX - doorW / 2, doorY, doorZ);
     pivotRight.position.set(doorX + doorW / 2, doorY, doorZ);
 
-    // Leaf local x: centre of each half-leaf relative to its pivot
-    // pivotLeft  pivot is at x = -doorW/2 world; leaf centre is doorW/4 further right → local +doorW/4
-    // pivotRight pivot is at x = +doorW/2 world; leaf centre is doorW/4 further left  → local -doorW/4
+    const doorLeft  = new THREE.Mesh(doorLeafGeo, matDoorLeaf);
+    const doorRight = new THREE.Mesh(doorLeafGeo, matDoorLeaf);
     doorLeft.position.set(doorW / 4, 0, 0);
     doorRight.position.set(-doorW / 4, 0, 0);
-
+    doorLeft.castShadow  = doorRight.castShadow  = true;
+    doorLeft.receiveShadow = doorRight.receiveShadow = true;
     pivotLeft.add(doorLeft);
     pivotRight.add(doorRight);
     scene.add(pivotLeft);
     scene.add(pivotRight);
 
-    // ── Tree glyphs on the door leaves (local coords, move with the doors) ────
-    // addLeafTree: lx = local x from pivot, leafDir = which pivot (+1 right leaf, -1 left leaf)
-    // The leaf surface faces +Z in local space; glyphs sit at local z = +0.25 (front face)
-    function addLeafTree(pivot, lx, leafHalfW) {
-      // lx is measured from the pivot origin; bottom of tree starts at local y = -doorH/2 + 0.6
-      const treeBottomY = -doorH / 2 + 0.6;
-      const trunkH = 2.8;
-      const glyphZ  = 0.25;  // just proud of the door face
+    // Tree glyphs on door faces (local coords, swing with the door)
+    function addLeafTree(pivot, localX) {
+      const bottomY = -doorH / 2 + 0.6;
+      const trunkH  = 2.8;
+      const gz      = 0.26;   // z proud of door face in local space
 
-      // Trunk
       const trunk = new THREE.Mesh(
         new THREE.BoxGeometry(0.20, trunkH, 0.14), matInscriptionLeaf);
-      trunk.position.set(lx, treeBottomY + trunkH / 2, glyphZ);
+      trunk.position.set(localX, bottomY + trunkH / 2, gz);
       pivot.add(trunk);
 
-      // Branches (grow toward centre of each leaf, i.e. inward)
       const branchAngles = [0.42, 0.68, 0.92, 1.12, 1.28];
       for (const ba of branchAngles) {
         const blen = (1.4 - ba * 0.55) * 0.85;
-        // Both sides of the trunk
         for (const side of [-1, 1]) {
           const b = new THREE.Mesh(
             new THREE.BoxGeometry(blen, 0.14, 0.12), matInscriptionLeaf);
-          const bx = lx + side * Math.cos(ba) * blen * 0.5;
-          const by = treeBottomY + ba * 1.15 + 0.5;
-          b.position.set(bx, by, glyphZ);
+          b.position.set(
+            localX + side * Math.cos(ba) * blen * 0.5,
+            bottomY + ba * 1.15 + 0.5,
+            gz);
           b.rotation.z = side * ba;
           pivot.add(b);
         }
       }
     }
 
-    // Left door: pivot at world x = doorX - doorW/2; leaf centre is at local x = +doorW/4
-    // Put tree at local x = doorW/4 (centre of leaf face)
-    addLeafTree(pivotLeft,  doorW / 4,  doorW / 4);
-    // Right door: pivot at world x = doorX + doorW/2; leaf centre is at local x = -doorW/4
-    addLeafTree(pivotRight, -doorW / 4, doorW / 4);
+    addLeafTree(pivotLeft,   doorW / 4);
+    addLeafTree(pivotRight, -doorW / 4);
 
-    // Collect all inscription leaf meshes for refs (we animate via matInscriptionLeaf)
-    // Nothing extra needed — the shared material handles glow for both trees and leaf glyphs.
-
-    // ── Ambient door glow light (proximity-activated, starts at 0) ───────────
-    const doorGlow = new THREE.PointLight(0x4466cc, 0, 18);
-    doorGlow.position.set(doorX, doorY, doorZ + 1);
+    // ── Proximity lights ──────────────────────────────────────────────────────
+    const doorGlow  = new THREE.PointLight(0x4466cc, 0, 20);
+    doorGlow.position.set(doorX, doorY, doorZ + 1.5);
     scene.add(doorGlow);
 
-    // Backfill glow (inside, so opening looks like depth)
-    const innerGlow = new THREE.PointLight(0x223355, 0, 22);
-    innerGlow.position.set(doorX, doorY, doorZ - 4);
+    const innerGlow = new THREE.PointLight(0x223355, 0, 28);
+    innerGlow.position.set(doorX, doorY, doorZ - 6);
     scene.add(innerGlow);
 
-    // ── Scattered boulders around the pool edge ───────────────────────────────
-    const boulderPositions = [
-      [-28,  -5, 1.3], [-24,   2, 1.0], [-32,  12, 1.5],
-      [-26,  22, 1.1], [-18,  30, 0.9], [-10,  34, 1.2],
-      [  2,  32, 0.85],[ 16,  24, 1.0], [ 20,  14, 0.7],
-      [ 18,   0, 1.1], [ 14, -10, 0.8], [  4, -14, 0.6],
-      [-14, -12, 1.4], [-22, -8,  1.0], [-30, -2,  1.3],
+    // ── Pool-edge boulders ────────────────────────────────────────────────────
+    const boulders = [
+      [-38, -8, 1.4], [-34,  4, 1.1], [-44, 16, 1.6],
+      [-36, 28, 1.2], [-28, 38, 1.0], [-18, 44, 1.3],
+      [ -6, 48, 0.9], [  8, 44, 1.0], [ 18, 34, 0.8],
+      [ 22, 20, 1.1], [ 20,  6, 1.0], [ 16, -8, 0.9],
+      [  4,-16, 0.7], [-12,-14, 1.4], [-26,-6,  1.1],
+      [-40,  8, 1.0], [-20, 52, 0.8], [ 10, 50, 0.9],
     ];
-    for (const [bx, bz, br] of boulderPositions) {
+    for (const [bx, bz, br] of boulders) {
       const by = groundY(bx, bz) + br * 0.45;
       addMesh(new THREE.SphereGeometry(br, 10, 7), matWetRock, bx, by, bz);
     }
 
-    // ── Rocky rubble flanking the path ────────────────────────────────────────
-    const rubbleChunks = [
+    // ── Ledge rubble ──────────────────────────────────────────────────────────
+    const rubble = [
       [14, 50, 0.4], [16, 44, 0.3], [13, 38, 0.5],
       [15, 30, 0.35],[14, 22, 0.4], [16, 16, 0.3],
       [ 8, 48, 0.3], [ 7, 34, 0.35],[ 9, 20, 0.3],
       [14,  6, 0.4], [13,  0, 0.3], [12, -4, 0.35],
     ];
-    for (const [rx, rz, rr] of rubbleChunks) {
+    for (const [rx, rz, rr] of rubble) {
       const ry = groundY(rx, rz) + rr * 0.25;
       addMesh(new THREE.SphereGeometry(rr, 8, 6), matRubble, rx, ry, rz);
     }
 
-    // ── Flat stones / slabs forming rough paving near the door ───────────────
-    const slabPositions = [
-      [ 0, -11], [-2, -9], [2, -9],
-      [-1, -7 ], [ 1, -7], [3, -8],
-      [ 5, -10], [-3,-11],
+    // ── Paving slabs in front of doors ───────────────────────────────────────
+    const slabSeeds = [
+      [ 0,-11], [-2,-9], [2,-9], [-1,-7], [1,-7], [3,-8], [5,-10], [-3,-11],
     ];
-    for (const [sx, sz] of slabPositions) {
+    // Use a simple deterministic pseudo-random to avoid Math.random() per-frame variance
+    let seed = 42;
+    function rng() { seed = (seed * 1664525 + 1013904223) & 0xffffffff; return (seed >>> 0) / 0xffffffff; }
+    for (const [sx, sz] of slabSeeds) {
       const sy = groundY(sx, sz) + 0.08;
-      const w  = 1.2 + Math.random() * 0.9;
-      const d  = 0.9 + Math.random() * 0.7;
+      const w  = 1.2 + rng() * 0.9;
+      const d  = 0.9 + rng() * 0.7;
       addMesh(new THREE.BoxGeometry(w, 0.18, d), MAT.STONE,
-        sx, sy, sz, 0, Math.random() * Math.PI, 0);
+        sx, sy, sz, 0, rng() * Math.PI, 0);
     }
 
-    // ── Large fallen column ───────────────────────────────────────────────────
-    {
-      const cx = -8, cz = -6;
-      const cy = groundY(cx, cz) + 0.8;
-      addMesh(new THREE.CylinderGeometry(0.55, 0.65, 5.5, 9), MAT.STONE_DARK,
-        cx, cy, cz, 0, 0, Math.PI / 2); // lying on its side
-    }
+    // ── Fallen column ─────────────────────────────────────────────────────────
+    addMesh(new THREE.CylinderGeometry(0.55, 0.65, 5.5, 9), MAT.STONE_DARK,
+      -8, groundY(-8, -6) + 0.55, -6, 0, 0, Math.PI / 2);
 
-    // ── Old iron torch bracket (unlit) ────────────────────────────────────────
-    {
-      const tx = 8, tz = -5;
-      const ty = groundY(tx, tz) + 3.2;
-      addMesh(new THREE.CylinderGeometry(0.05, 0.07, 0.5, 6), matRubble, tx, ty, tz);
-      addMesh(new THREE.CylinderGeometry(0.12, 0.08, 0.3, 6), matRubble, tx, ty + 0.38, tz);
-    }
-
-    // ── Ripple ring on the water surface (for the Watcher) ───────────────────
-    // Static thin torus — onFrame will pulse its opacity
-    const rippleMat = new THREE.MeshStandardMaterial({
-      color: 0x0a1520, transparent: true, opacity: 0, roughness: 0.4,
-      depthWrite: false,
+    // ── Watcher ripples ───────────────────────────────────────────────────────
+    const rippleMat  = new THREE.MeshStandardMaterial({
+      color: 0x0a1828, transparent: true, opacity: 0,
+      roughness: 0.4, depthWrite: false,
     });
     const rippleMat2 = rippleMat.clone();
-    const rippleRing  = new THREE.Mesh(new THREE.TorusGeometry(4, 0.12, 6, 40), rippleMat);
-    const rippleRing2 = new THREE.Mesh(new THREE.TorusGeometry(7, 0.10, 6, 40), rippleMat2);
+    const rippleRing  = new THREE.Mesh(new THREE.TorusGeometry(4,  0.12, 6, 44), rippleMat);
+    const rippleRing2 = new THREE.Mesh(new THREE.TorusGeometry(7,  0.10, 6, 44), rippleMat2);
     rippleRing.rotation.x  = -Math.PI / 2;
     rippleRing2.rotation.x = -Math.PI / 2;
-    rippleRing.position.set(-14, -2.95, 6);
-    rippleRing2.position.set(-14, -2.92, 6);
+    rippleRing.position.set(-20, -3.0, 10);
+    rippleRing2.position.set(-20, -2.97, 10);
     scene.add(rippleRing);
     scene.add(rippleRing2);
 
-    // ── Return refs for onFrame ───────────────────────────────────────────────
+    // ── Refs ──────────────────────────────────────────────────────────────────
     return {
-      doorGlow,
-      innerGlow,
+      doorGlow, innerGlow,
       inscriptionGroup,
-      matInscription,
-      matInscriptionLeaf,
-      pivotLeft,
-      pivotRight,
-      water,
-      rippleRing,
-      rippleMat,
-      rippleRing2,
-      rippleMat2,
-      // track door state
+      matInscription, matInscriptionLeaf,
+      pivotLeft, pivotRight,
+      water, mistMat,
+      rippleRing, rippleMat,
+      rippleRing2, rippleMat2,
       _doorsOpen: false,
-      _doorsOpenAmt: 0,   // 0 = closed, 1 = open (animated)
+      _doorsOpenAmt: 0,
       _glowAmt: 0,
     };
   },
@@ -575,65 +582,48 @@ const MoriaDoors = {
   onFrame(t, dt, refs, playerPos) {
     if (!refs) return;
 
-    // ── Proximity glow: use playerPos THREE.Vector3 passed by engine ──────────
     const doorX = 0, doorZ = -17;
-    const dx    = playerPos.x - doorX;
-    const dz    = playerPos.z - doorZ;
+    const dx = playerPos.x - doorX;
+    const dz = playerPos.z - doorZ;
     const distToDoor = Math.sqrt(dx * dx + dz * dz);
 
-    // Glow appears within 18 units, full strength within 6 units
-    const targetGlow = distToDoor < 18
-      ? Math.max(0, Math.min(1, (18 - distToDoor) / 12))
+    // ── Inscription glow ──────────────────────────────────────────────────────
+    const targetGlow = distToDoor < 20
+      ? Math.max(0, Math.min(1, (20 - distToDoor) / 14))
       : 0;
-
-    refs._glowAmt = refs._glowAmt + (targetGlow - refs._glowAmt) * Math.min(1, dt * 1.2);
+    refs._glowAmt += (targetGlow - refs._glowAmt) * Math.min(1, dt * 1.2);
     const g = refs._glowAmt;
 
-    // Inscription group — opacity and emissive
-    refs.matInscription.opacity          = g * 0.92;
-    refs.matInscription.emissiveIntensity = g * 2.8 + Math.sin(t * 0.7) * g * 0.3;
+    refs.matInscription.opacity           = g * 0.92;
+    refs.matInscription.emissiveIntensity  = g * 2.8 + Math.sin(t * 0.7) * g * 0.3;
+    refs.matInscriptionLeaf.opacity        = g * 0.80;
+    refs.matInscriptionLeaf.emissiveIntensity = g * 2.0 + Math.sin(t * 0.9 + 1.2) * g * 0.25;
 
-    refs.matInscriptionLeaf.opacity           = g * 0.7;
-    refs.matInscriptionLeaf.emissiveIntensity = g * 1.8 + Math.sin(t * 0.9 + 1.2) * g * 0.2;
+    refs.doorGlow.intensity  = g * 1.0;
+    refs.innerGlow.intensity = g * 0.6;
 
-    refs.doorGlow.intensity  = g * 0.9;
-    refs.innerGlow.intensity = g * 0.5;
-
-    // ── Door opening: if very close AND player is pressing forward ─────────────
-    // Doors open when within 5 units (you've found the word: mellon)
-    const doorsActivated = distToDoor < 5.5;
-    if (doorsActivated && !refs._doorsOpen) {
-      refs._doorsOpen = true;
-    }
-
-    const targetOpenAmt = refs._doorsOpen ? 1 : 0;
-    refs._doorsOpenAmt += (targetOpenAmt - refs._doorsOpenAmt) * Math.min(1, dt * 0.55);
-
-    const openAngle = refs._doorsOpenAmt * Math.PI * 0.48; // ~86° swing
+    // ── Door swing ────────────────────────────────────────────────────────────
+    if (distToDoor < 5.5 && !refs._doorsOpen) refs._doorsOpen = true;
+    refs._doorsOpenAmt += ((refs._doorsOpen ? 1 : 0) - refs._doorsOpenAmt)
+                          * Math.min(1, dt * 0.5);
+    const openAngle = refs._doorsOpenAmt * Math.PI * 0.48;
     refs.pivotLeft.rotation.y  = -openAngle;
     refs.pivotRight.rotation.y =  openAngle;
 
-    // ── Water shimmer (subtle Y ripple in UV, using water position) ───────────
-    // No UV offset available on standard mat; we animate the mist opacity instead
-    // to suggest light playing on the surface
-    if (refs.water && refs.water.material) {
-      refs.water.material.opacity = 0.85 + Math.sin(t * 0.31) * 0.03
-                                        + Math.sin(t * 0.77) * 0.02;
-    }
+    // ── Water shimmer ─────────────────────────────────────────────────────────
+    refs.water.material.opacity = 0.88 + Math.sin(t * 0.31) * 0.03
+                                       + Math.sin(t * 0.77) * 0.02;
 
     // ── Watcher ripples ───────────────────────────────────────────────────────
-    // Two slow-expanding rings, offset in phase
-    const rCycle = 12; // seconds per ripple pulse
+    const rCycle  = 14;
     const r1Phase = (t % rCycle) / rCycle;
     const r2Phase = ((t + rCycle * 0.5) % rCycle) / rCycle;
 
-    // Ring 1
-    refs.rippleRing.scale.set(1 + r1Phase * 2.2, 1, 1 + r1Phase * 2.2);
-    refs.rippleMat.opacity = 0.22 * Math.sin(r1Phase * Math.PI) * (0.5 + 0.5 * g);
+    refs.rippleRing.scale.set(1 + r1Phase * 2.4, 1, 1 + r1Phase * 2.4);
+    refs.rippleMat.opacity  = 0.24 * Math.sin(r1Phase * Math.PI);
 
-    // Ring 2
-    refs.rippleRing2.scale.set(1 + r2Phase * 2.8, 1, 1 + r2Phase * 2.8);
-    refs.rippleMat2.opacity = 0.15 * Math.sin(r2Phase * Math.PI) * (0.5 + 0.5 * g);
+    refs.rippleRing2.scale.set(1 + r2Phase * 3.0, 1, 1 + r2Phase * 3.0);
+    refs.rippleMat2.opacity = 0.16 * Math.sin(r2Phase * Math.PI);
   },
 };
 
