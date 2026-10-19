@@ -19,15 +19,9 @@ const MoriaDoors = {
     // the north-facing cliff wall and the door face directly.
     moonColor:        0x5a7899,
     moonIntensity:    0.55,
-    moonPosition:     { x: 40, y: 80, z: 120 },   // south-east, low
+    moonPosition:     { x: 40, y: 80, z: 120 },   // south-east, low — rakes cliff face
     showStars:        true,
-    extraLights: [
-      // Secondary cold fill from west — bounced off the tarn surface
-      { color: 0x1a2a40, intensity: 0.30, x: -60, y: 30, z: 20 },
-      // Dedicated door face light — aimed from south, low, to guarantee
-      // the cliff and inscription are lit even when fog is thick
-      { color: 0x3a5070, intensity: 0.40, x: 0, y: 25, z: 60 },
-    ],
+    extraLights:      [],   // no extra directionals — they bounce off the pool
   },
 
   // ─── Terrain ───────────────────────────────────────────────────────────────
@@ -46,14 +40,14 @@ const MoriaDoors = {
     const fbm   = window.api_fbm;
     const noise = window.api_noise2d;
 
-    // ── large tarn basin (centre x=-18, z=14, ellipse rx=48 rz=52) ──────────
-    // Use an ellipse so the pool fills the whole west side of the scene.
-    // Basin terrain is CLAMPED to poolFloor inside the pool radius so the
-    // water plane Y can be set to a known value above it.
-    const pcx = x - (-18), pcz = z - 14;
-    const poolRX = 48, poolRZ = 52;
+    // ── large tarn basin ─────────────────────────────────────────────────────
+    // Centre at x=-28, z=14. East radius deliberately short (rx=26) so the
+    // pool edge stops well west of the ledge path (x≈11) and the door apron.
+    // The water plane is large enough to fill the whole west half visually.
+    const pcx = x - (-28), pcz = z - 14;
+    const poolRX = 30, poolRZ = 50;
     const poolEllipse = (pcx / poolRX) * (pcx / poolRX) + (pcz / poolRZ) * (pcz / poolRZ);
-    const poolFloor   = -2.0;   // terrain is clamped here inside the pool
+    const poolFloor   = -2.2;
     const poolBlend   = Math.max(0, 1 - poolEllipse);
     const poolDip     = poolBlend * poolBlend * poolFloor;
 
@@ -79,17 +73,24 @@ const MoriaDoors = {
 
     let h = rough * 0.5 + cliffRise + shoulderRise + poolDip + southSlope;
 
-    // Clamp deep inside the pool to a hard floor so the water plane is always above terrain
+    // Clamp deep inside pool basin
     if (poolEllipse < 0.6) {
       h = Math.min(h, poolFloor + 0.3);
     }
 
-    if (ledgeDx < 3.5 && z > -6 && z < 58) {
-      h = rough * 0.5 + southSlope + 0.4;
+    // ── ledge path corridor: always above water level ─────────────────────────
+    if (ledgeDx < 3.5 && z > -18 && z < 58) {
+      // Flat ledge with slight natural variation, always >= 0.5 above water Y(-1.6)
+      h = Math.max(rough * 0.5 + southSlope + 0.4, 0.5);
     }
 
-    // ── antechamber zone: keep terrain flat so walkable sits cleanly ──────────
-    // x=-10..10, z=-18..-44 → force terrain to a low flat value
+    // ── door apron: wide flat shelf in front of the cliff face ────────────────
+    // x=-8..8, z=-5..-18 — guaranteed solid ground above pool level
+    if (x > -8 && x < 8 && z < -5 && z > -18) {
+      h = Math.max(h, 0.5);
+    }
+
+    // ── antechamber zone ──────────────────────────────────────────────────────
     if (x > -10 && x < 10 && z < -18 && z > -44) {
       h = 0.2;
     }
@@ -106,9 +107,9 @@ const MoriaDoors = {
     const wet    = [0.10, 0.13, 0.19];
     const lichen = [0.22, 0.26, 0.16];
 
-    const px = vx - (-18), pz = vz - 14;
+    const px = vx - (-28), pz = vz - 14;
     const poolDist = Math.sqrt(px * px + pz * pz);
-    const wetness  = Math.max(0, 1 - poolDist / 54);
+    const wetness  = Math.max(0, 1 - poolDist / 48);
 
     let r = lerp(slate[0], seam[0], n2 * 0.5);
     let g = lerp(slate[1], seam[1], n2 * 0.5);
@@ -277,7 +278,7 @@ const MoriaDoors = {
     const waterGeo = new THREE.PlaneGeometry(110, 110, 1, 1);
     const water    = new THREE.Mesh(waterGeo, matWater);
     water.rotation.x = -Math.PI / 2;
-    water.position.set(-18, -1.6, 14);
+    water.position.set(-28, -1.6, 14);
     water.receiveShadow = true;
     scene.add(water);
 
@@ -288,7 +289,7 @@ const MoriaDoors = {
     });
     const mist = new THREE.Mesh(new THREE.PlaneGeometry(116, 116, 1, 1), mistMat);
     mist.rotation.x = -Math.PI / 2;
-    mist.position.set(-18, -1.1, 14);
+    mist.position.set(-28, -1.1, 14);
     scene.add(mist);
 
     // ── Cliff face — main mountain wall slab ──────────────────────────────────
@@ -408,53 +409,12 @@ const MoriaDoors = {
       scene.add(bm);
     }
 
-    // ── Inscription on cliff wall (arch outline, runes, star) ─────────────────
+    // ── Inscription: all glowing elements live on the door leaves ─────────────
+    // We use a shared invisible group parented to the scene just to collect refs;
+    // actual meshes are added to pivotLeft / pivotRight below after pivots exist.
+    // (inscriptionGroup is kept as a ref handle for onFrame material animation.)
     const inscriptionGroup = new THREE.Group();
-
-    const archOutR  = archR + 0.55;
-    const archOutSg = 18;
-    for (let i = 0; i < archOutSg; i++) {
-      const a0 = Math.PI * (i / archOutSg);
-      const a1 = Math.PI * ((i + 1) / archOutSg);
-      const am  = (a0 + a1) / 2;
-      const ax  = Math.cos(am) * archOutR;
-      const ay  = Math.sin(am) * archOutR;
-      const len = archOutR * (a1 - a0) + 0.04;
-      const sm  = new THREE.Mesh(
-        new THREE.BoxGeometry(len * 1.05, 0.22, 0.18), matInscription);
-      sm.position.set(doorX - ax, archCY + ay, doorZ - 1.0);
-      sm.rotation.z = -(am - Math.PI / 2);
-      inscriptionGroup.add(sm);
-    }
-
-    // Vertical rune strokes beside jambs
-    for (const side of [-1, 1]) {
-      for (let i = 0; i < 6; i++) {
-        const gy = doorY - doorH / 2 + 1 + i * 1.5;
-        const sm = new THREE.Mesh(
-          new THREE.BoxGeometry(0.18, 1.1, 0.18), matInscription);
-        sm.position.set(doorX + side * (doorW / 2 + 2.4), gy, doorZ - 1.0);
-        inscriptionGroup.add(sm);
-      }
-    }
-
-    // Star of Durin above arch
-    const starY = archCY + archOutR + 1.5;
-    const starPts = 7;
-    for (let i = 0; i < starPts; i++) {
-      const a   = (i / starPts) * Math.PI * 2 - Math.PI / 2;
-      const len = i % 2 === 0 ? 1.1 : 0.65;
-      const rm  = new THREE.Mesh(
-        new THREE.BoxGeometry(0.16, len, 0.16), matInscription);
-      rm.position.set(
-        doorX + Math.cos(a) * (len * 0.5 + 0.05),
-        starY  + Math.sin(a) * (len * 0.5 + 0.05),
-        doorZ - 1.0);
-      rm.rotation.z = a + Math.PI / 2;
-      inscriptionGroup.add(rm);
-    }
-
-    scene.add(inscriptionGroup);
+    scene.add(inscriptionGroup); // empty — just a ref anchor
 
     // ── Door leaves with tree glyphs ──────────────────────────────────────────
     const doorLeafGeo = new THREE.BoxGeometry(doorW / 2, doorH, 0.45);
@@ -475,12 +435,17 @@ const MoriaDoors = {
     scene.add(pivotLeft);
     scene.add(pivotRight);
 
-    // Tree glyphs on door faces (local coords, swing with the door)
-    function addLeafTree(pivot, localX) {
-      const bottomY = -doorH / 2 + 0.6;
-      const trunkH  = 2.8;
-      const gz      = 0.26;   // z proud of door face in local space
+    // All inscription glyphs live in door-leaf local space so they swing open
+    // with the doors. localX is the leaf centre from its pivot origin.
+    // side: +1 = left door (pivot at -doorW/2), -1 = right door (pivot at +doorW/2)
+    function addLeafGlyphs(pivot, localX, doorSide) {
+      const gz       = 0.27;   // just proud of the door face
+      const halfW    = doorW / 2;
+      const halfH    = doorH / 2;
+      const bottomY  = -halfH + 0.6;
+      const trunkH   = 2.8;
 
+      // ── Tree (trunk + branches) ─────────────────────────────────────────────
       const trunk = new THREE.Mesh(
         new THREE.BoxGeometry(0.20, trunkH, 0.14), matInscriptionLeaf);
       trunk.position.set(localX, bottomY + trunkH / 2, gz);
@@ -489,23 +454,85 @@ const MoriaDoors = {
       const branchAngles = [0.42, 0.68, 0.92, 1.12, 1.28];
       for (const ba of branchAngles) {
         const blen = (1.4 - ba * 0.55) * 0.85;
-        for (const side of [-1, 1]) {
+        for (const bside of [-1, 1]) {
           const b = new THREE.Mesh(
             new THREE.BoxGeometry(blen, 0.14, 0.12), matInscriptionLeaf);
           b.position.set(
-            localX + side * Math.cos(ba) * blen * 0.5,
-            bottomY + ba * 1.15 + 0.5,
-            gz);
-          b.rotation.z = side * ba;
+            localX + bside * Math.cos(ba) * blen * 0.5,
+            bottomY + ba * 1.15 + 0.5, gz);
+          b.rotation.z = bside * ba;
           pivot.add(b);
+        }
+      }
+
+      // ── Arch outline — this leaf's half of the arch ─────────────────────────
+      // The full arch spans -doorW/2 to +doorW/2 in world X.
+      // In this leaf's local space the pivot is at world x = doorX ± doorW/2,
+      // so the arch centre in local x is ∓doorW/2 (the seam).
+      // We draw the 9 segments that fall on this leaf's half.
+      const archOutR  = doorW / 2 + 0.8;   // slightly wider than door half
+      const archCentreLocalX = -doorSide * halfW; // seam in local x
+      const archCentreLocalY =  halfH;            // top of door in local y
+      const archSegsH = 9; // half the arch (0..PI covers the full top)
+      // doorSide +1 → left door → draw segments from PI to 0 (left half)
+      // doorSide -1 → right door → draw segments from 0 to PI (right half)
+      const a0Start = doorSide === 1 ? Math.PI * 0.5 : 0;
+      const a0End   = doorSide === 1 ? Math.PI       : Math.PI * 0.5;
+      for (let i = 0; i < archSegsH; i++) {
+        const a0 = a0Start + (a0End - a0Start) * (i / archSegsH);
+        const a1 = a0Start + (a0End - a0Start) * ((i + 1) / archSegsH);
+        const am  = (a0 + a1) / 2;
+        const ax  = Math.cos(am) * archOutR;
+        const ay  = Math.sin(am) * archOutR;
+        const len = archOutR * (a1 - a0) + 0.04;
+        const sm  = new THREE.Mesh(
+          new THREE.BoxGeometry(len * 1.05, 0.20, 0.15), matInscription);
+        sm.position.set(archCentreLocalX - ax, archCentreLocalY + ay, gz - 0.02);
+        sm.rotation.z = -(am - Math.PI / 2);
+        pivot.add(sm);
+      }
+
+      // ── Rune strokes along outer edge of this leaf ──────────────────────────
+      const runeEdgeX = localX + doorSide * (halfW * 0.6);
+      for (let i = 0; i < 5; i++) {
+        const ry = -halfH + 1.2 + i * 1.6;
+        const sm = new THREE.Mesh(
+          new THREE.BoxGeometry(0.15, 0.9, 0.13), matInscription);
+        sm.position.set(runeEdgeX, ry, gz - 0.01);
+        pivot.add(sm);
+      }
+
+      // ── Star of Durin — only on left door, centred at the seam ─────────────
+      // Placed at eye height (~1.5 units above bottom of door) on the inner edge
+      if (doorSide === 1) {
+        const starLocalX = archCentreLocalX;   // seam side
+        const starLocalY = halfH * 0.55;       // upper-mid of door — eye level ~1.6m
+        const starPts = 7;
+        for (let i = 0; i < starPts; i++) {
+          const a   = (i / starPts) * Math.PI * 2 - Math.PI / 2;
+          const len = i % 2 === 0 ? 0.55 : 0.32;
+          const rm  = new THREE.Mesh(
+            new THREE.BoxGeometry(0.12, len, 0.12), matInscription);
+          rm.position.set(
+            starLocalX + Math.cos(a) * (len * 0.5 + 0.03),
+            starLocalY + Math.sin(a) * (len * 0.5 + 0.03),
+            gz);
+          rm.rotation.z = a + Math.PI / 2;
+          pivot.add(rm);
         }
       }
     }
 
-    addLeafTree(pivotLeft,   doorW / 4);
-    addLeafTree(pivotRight, -doorW / 4);
+    addLeafGlyphs(pivotLeft,   doorW / 4,  1);   // left door,  doorSide=+1
+    addLeafGlyphs(pivotRight, -doorW / 4, -1);   // right door, doorSide=-1
 
-    // ── Proximity lights ──────────────────────────────────────────────────────
+    // ── Static cliff-face fill: PointLight close to door, can't reach pool ───
+    // Radius 22 means it dies out well before x=-28 (pool is ~30 units west).
+    const cliffFill = new THREE.PointLight(0x3a5570, 0.5, 22);
+    cliffFill.position.set(doorX, doorY, doorZ + 8);
+    scene.add(cliffFill);
+
+    // ── Proximity lights (gated by distance in onFrame) ───────────────────────
     const doorGlow  = new THREE.PointLight(0x4466cc, 0, 20);
     doorGlow.position.set(doorX, doorY, doorZ + 1.5);
     scene.add(doorGlow);
@@ -515,13 +542,14 @@ const MoriaDoors = {
     scene.add(innerGlow);
 
     // ── Pool-edge boulders — ring around the ellipse perimeter ───────────────
+    // Pool: centre x=-28, z=14, rx=30 east-west, rz=50 north-south
     const boulders = [
-      [-52, -8, 1.4], [-48,  4, 1.2], [-58, 16, 1.6],
-      [-50, 28, 1.3], [-40, 46, 1.1], [-28, 56, 1.0],
-      [-14, 60, 0.9], [  2, 56, 1.0], [ 16, 46, 0.8],
-      [ 24, 30, 1.1], [ 24, 14, 1.0], [ 20, -4, 0.9],
-      [  8,-16, 0.8], [ -6,-18, 1.3], [-22,-14, 1.2],
-      [-38, -4, 1.1], [-56, 22, 1.0], [-20, 62, 0.9],
+      [-60, 14, 1.4], [-56, -4, 1.2], [-58, 32, 1.5],
+      [-50, 50, 1.1], [-36, 60, 1.0], [-20, 62, 0.9],
+      [ -4, 58, 1.0], [  6, 44, 0.9], [  6, 26, 1.1],
+      [  4,  8, 1.0], [  2, -8, 1.2], [-10,-18, 1.3],
+      [-24,-22, 1.4], [-40,-16, 1.2], [-56,  0, 1.1],
+      [-58, 28, 1.0], [-42, 58, 0.9], [-18,-20, 1.0],
     ];
     for (const [bx, bz, br] of boulders) {
       const by = groundY(bx, bz) + br * 0.45;
@@ -569,8 +597,8 @@ const MoriaDoors = {
     const rippleRing2 = new THREE.Mesh(new THREE.TorusGeometry(7,  0.10, 6, 44), rippleMat2);
     rippleRing.rotation.x  = -Math.PI / 2;
     rippleRing2.rotation.x = -Math.PI / 2;
-    rippleRing.position.set(-22, -1.55, 12);
-    rippleRing2.position.set(-22, -1.52, 12);
+    rippleRing.position.set(-30, -1.55, 12);
+    rippleRing2.position.set(-30, -1.52, 12);
     scene.add(rippleRing);
     scene.add(rippleRing2);
 
