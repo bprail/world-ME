@@ -76,74 +76,34 @@ const MoriaBridge = {
     { trigger: { x:  62, z: 50, radius: 6 }, to: 'lothlorien' },
   ],
 
-  // walkable yaw: π*1.5 = runs east-west (along X); yaw:0 = runs north-south (along Z)
+  // Only the elevated bridge needs walkables — everything else is ground-level terrain.
+  // yaw π*1.5 = segment runs east-west (along X axis).
   walkables: [
-    // Hall (x=-70→0, centre=-35, length=70, width=40)
-    { x:-35, z:0, yaw:Math.PI*1.5, length:70, width:40, yStart:0, yEnd:0 },
-
-    // Passage (x=0→20, centre=10, length=20)
-    { x:10,  z:0, yaw:Math.PI*1.5, length:20, width:7,  yStart:0, yEnd:0 },
-
-    // Flat approach before ramp (x=20→24)
-    { x:22,  z:0, yaw:Math.PI*1.5, length:4,  width:4,  yStart:0, yEnd:0 },
-
     // Bridge west ramp (x=24→32, rises 0→4)
-    { x:28,  z:0, yaw:Math.PI*1.5, length:8,  width:2.2, yStart:0.0, yEnd:4.0 },
+    { x:28,   z:0, yaw:Math.PI*1.5, length:8, width:2.2, yStart:0.0, yEnd:4.0 },
     // Arch seg 1 (x=32→39, rises 4→6.5)
-    { x:35.5,z:0, yaw:Math.PI*1.5, length:7,  width:1.4, yStart:4.0, yEnd:6.5 },
+    { x:35.5, z:0, yaw:Math.PI*1.5, length:7, width:1.4, yStart:4.0, yEnd:6.5 },
     // Arch seg 2 (x=39→44, rises 6.5→8)
-    { x:41.5,z:0, yaw:Math.PI*1.5, length:5,  width:1.4, yStart:6.5, yEnd:8.0 },
+    { x:41.5, z:0, yaw:Math.PI*1.5, length:5, width:1.4, yStart:6.5, yEnd:8.0 },
     // Crown (x=44→48, flat 8)
-    { x:46,  z:0, yaw:Math.PI*1.5, length:4,  width:1.4, yStart:8.0, yEnd:8.0 },
+    { x:46,   z:0, yaw:Math.PI*1.5, length:4, width:1.4, yStart:8.0, yEnd:8.0 },
     // Arch seg 3 (x=48→53, descends 8→6.5)
-    { x:50.5,z:0, yaw:Math.PI*1.5, length:5,  width:1.4, yStart:8.0, yEnd:6.5 },
+    { x:50.5, z:0, yaw:Math.PI*1.5, length:5, width:1.4, yStart:8.0, yEnd:6.5 },
     // Arch seg 4 (x=53→60, descends 6.5→4)
-    { x:56.5,z:0, yaw:Math.PI*1.5, length:7,  width:1.4, yStart:6.5, yEnd:4.0 },
+    { x:56.5, z:0, yaw:Math.PI*1.5, length:7, width:1.4, yStart:6.5, yEnd:4.0 },
     // East ramp (x=60→66, descends 4→0)
-    { x:63,  z:0, yaw:Math.PI*1.5, length:6,  width:2.2, yStart:4.0, yEnd:0.0 },
-
-    // East landing (x=60→72, z=0→14)
-    { x:66,  z:7, yaw:0,           length:14, width:14, yStart:0, yEnd:0 },
-
-    // South corridor (x=58→66, z=14→32, centre z=23)
-    { x:62,  z:23, yaw:0,          length:18, width:8,  yStart:0, yEnd:0 },
-
-    // Ante-room (x=56→68, z=32→46, centre x=62 z=39)
-    { x:62,  z:39, yaw:0,          length:14, width:12, yStart:0, yEnd:0 },
+    { x:63,   z:0, yaw:Math.PI*1.5, length:6, width:2.2, yStart:4.0, yEnd:0.0 },
   ],
 
+  // Only barriers the engine needs: the chasm void on either side of the bridge.
+  // Inner edge sits just outside the bridge width (half-width 0.7 → inner edge at z=±1.8).
   barriers: [
-    // Hall north & south walls
-    { x:-35, z:-22, w:74, d:4, yaw:0 },
-    { x:-35, z: 22, w:74, d:4, yaw:0 },
-    // Hall west back wall
-    { x:-73, z:0, w:6, d:48, yaw:0 },
-
-    // Passage north & south walls
-    { x:10, z:-5,  w:22, d:4, yaw:0 },
-    { x:10, z: 5,  w:22, d:4, yaw:0 },
-
-    // Chasm north flank (z < -2, bridge is at z=0 width 1.4 so edge at z=-0.7)
-    { x:44, z:-9,  w:48, d:14, yaw:0 },
+    // Chasm north flank
+    { x:44, z:-9, w:48, d:14, yaw:0 },
     // Chasm south flank
-    { x:44, z: 9,  w:48, d:14, yaw:0 },
+    { x:44, z: 9, w:48, d:14, yaw:0 },
 
     // North blocking wall at east bridge exit (forces player south)
-    { x:64, z:-7,  w:10, d:14, yaw:0 },
-
-    // East landing south void edge
-    { x:66, z:15,  w:14, d:3,  yaw:0 },
-    // East landing east wall
-    { x:73, z:7,   w:4,  d:14, yaw:0 },
-
-    // South corridor walls
-    { x:57, z:23,  w:4,  d:20, yaw:0 },
-    { x:67, z:23,  w:4,  d:20, yaw:0 },
-
-    // Ante-room walls
-    { x:55, z:39,  w:4,  d:16, yaw:0 },
-    { x:69, z:39,  w:4,  d:16, yaw:0 },
-    { x:62, z:47,  w:16, d:4,  yaw:0 },
   ],
 
   buildScene(THREE, scene, groundY, MAT) {
@@ -411,9 +371,10 @@ const MoriaBridge = {
     makeTorch(20.2,0,-5);
     makeTorch(20.2,0, 5);
 
-    // North wall blocking east bridge exit (x=62→72, z=-16→0)
-    const blockN=new THREE.Mesh(new THREE.BoxGeometry(12,CAVN_H,16),matStone);
-    blockN.position.set(67,CAVN_H/2,-8); scene.add(blockN);
+    // North wall blocking east bridge exit — spans x=60→74, z=-16→-2
+    // South face at z=-2 clears the bridge (half-width 0.7). Joins the north cavern wall.
+    const blockN=new THREE.Mesh(new THREE.BoxGeometry(14,CAVN_H,14),matStone);
+    blockN.position.set(67,CAVN_H/2,-9); scene.add(blockN);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EAST LANDING — x=60→72, z=0→14, h=20
