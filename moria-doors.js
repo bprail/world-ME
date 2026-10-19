@@ -435,100 +435,105 @@ const MoriaDoors = {
     scene.add(pivotLeft);
     scene.add(pivotRight);
 
-    // ── Coordinate reference ──────────────────────────────────────────────────
-    // pivotLeft  sits at world x = doorX - doorW/2 = -3.2  (west / outer edge)
-    // pivotRight sits at world x = doorX + doorW/2 = +3.2  (east / outer edge)
-    //
-    // Left leaf local X:   0 = outer(west) edge,  +doorW/2 = inner(seam) edge
-    // Right leaf local X:  0 = outer(east) edge,  -doorW/2 = inner(seam) edge
-    //
-    // Leaf centre:  left = local x +doorW/4 = +1.6
-    //               right = local x -doorW/4 = -1.6
-    //
-    // Arch centre in LOCAL space:
-    //   left pivot:  x = +doorW/2 = +3.2,  y = +doorH/2 = +5.1   (top-inner corner)
-    //   right pivot: x = -doorW/2 = -3.2,  y = +doorH/2 = +5.1
-    //
-    // Each leaf draws its own half of the arch (the half directly above it).
-    // Left  leaf → angles PI/2 .. PI   (left  half, cos negative)
-    // Right leaf → angles 0   .. PI/2  (right half, cos positive)
+    // ── Door leaf coordinate reference ────────────────────────────────────────
+    // Each leaf is doorW/2 = 3.2 wide, doorH = 10.2 tall.
+    // The pivot sits at the OUTER edge of the leaf in world space.
+    // Local X for the left  leaf: 0 = outer(west), +3.2 = seam(inner/east)
+    // Local X for the right leaf: 0 = outer(east), -3.2 = seam(inner/west)
+    // Local Y: -5.1 = bottom, 0 = centre, +5.1 = top  (leaf is centred on pivot Y)
+    // All glyph geometry must stay within x=[0..±3.2], y=[-5.1..+5.1].
 
-    const gz      = 0.27;          // proud of door face in local Z
-    const leafHalfW = doorW / 2;   // 3.2  — half-width = full leaf width
-    const leafHalfH = doorH / 2;   // 5.1
+    const gz        = 0.27;   // local Z: just proud of the door face
+    const leafW     = doorW / 2;   // 3.2 — full width of one leaf
+    const leafHalfH = doorH / 2;  // 5.1
 
-    function addLeafGlyphs(pivot, leafCentreX, seamX, archAngleStart, archAngleEnd) {
+    // sign: +1 for left leaf (seam is at local +leafW), -1 for right (seam at -leafW)
+    function addLeafGlyphs(pivot, sign) {
 
-      // ── Tree centred on this leaf ───────────────────────────────────────────
-      const treeX   = leafCentreX;
-      const bottomY = -leafHalfH + 0.5;
-      const trunkH  = 2.6;
+      // Convenient local-X positions for this leaf
+      const seamX   =  sign * leafW;          // ±3.2 — inner/seam edge
+      const centreX =  sign * leafW * 0.5;    // ±1.6 — leaf centre
+      const outerX  =  sign * leafW * 0.15;   // ±0.48 — near outer edge
+
+      // ── Tree: centred on the leaf, bottom third ─────────────────────────────
+      const treeX   = centreX;
+      const treeBaseY = -leafHalfH + 0.4;
+      const trunkH  = 2.5;
 
       const trunk = new THREE.Mesh(
         new THREE.BoxGeometry(0.20, trunkH, 0.14), matInscriptionLeaf);
-      trunk.position.set(treeX, bottomY + trunkH / 2, gz);
+      trunk.position.set(treeX, treeBaseY + trunkH / 2, gz);
       pivot.add(trunk);
 
-      const branchAngles = [0.42, 0.68, 0.92, 1.12, 1.28];
+      const branchAngles = [0.40, 0.65, 0.90, 1.10, 1.25];
       for (const ba of branchAngles) {
-        const blen = (1.4 - ba * 0.55) * 0.85;
+        const blen = (1.35 - ba * 0.52) * 0.88;
         for (const bside of [-1, 1]) {
           const b = new THREE.Mesh(
-            new THREE.BoxGeometry(blen, 0.14, 0.12), matInscriptionLeaf);
+            new THREE.BoxGeometry(blen, 0.13, 0.11), matInscriptionLeaf);
           b.position.set(
             treeX + bside * Math.cos(ba) * blen * 0.5,
-            bottomY + ba * 1.15 + 0.4, gz);
+            treeBaseY + ba * 1.1 + 0.4, gz);
           b.rotation.z = bside * ba;
           pivot.add(b);
         }
       }
 
-      // ── Arch half above this leaf ───────────────────────────────────────────
-      // archR matches the door opening width so the arch sits right on the door edge
-      const archR   = doorW / 2;          // 3.2 — radius of arch = half door width
-      const archCX  = seamX;              // arch centre X in local space = seam edge
-      const archCY  = leafHalfH;          // arch centre Y = top of door in local space
-      const nSegs   = 8;
-      for (let i = 0; i < nSegs; i++) {
-        const a0 = archAngleStart + (archAngleEnd - archAngleStart) * (i / nSegs);
-        const a1 = archAngleStart + (archAngleEnd - archAngleStart) * ((i + 1) / nSegs);
+      // ── Decorative inset arc at top of leaf ────────────────────────────────
+      // A quarter-circle arc drawn entirely WITHIN the leaf bounds.
+      // It curves from the outer-top corner down toward the seam-top corner,
+      // staying inside the leaf rectangle.
+      // Arc centre: at (outerX, leafHalfH) i.e. outer edge, top of leaf.
+      // Radius = leafW * 0.85 so the arc stays well within the leaf width.
+      // Angles: this traces a concave curve across the top of the leaf.
+      const arcCX  = seamX;           // centre at seam edge
+      const arcCY  = leafHalfH * 0.6; // centre below top, so arc bulges upward
+      const arcR   = leafW * 0.88;    // radius just under leaf width
+      const arcA0  = sign > 0 ? Math.PI * 0.55 : Math.PI * -0.05;
+      const arcA1  = sign > 0 ? Math.PI * 0.95 : Math.PI *  0.45;
+      const arcSegs = 6;
+      for (let i = 0; i < arcSegs; i++) {
+        const a0 = arcA0 + (arcA1 - arcA0) * (i / arcSegs);
+        const a1 = arcA0 + (arcA1 - arcA0) * ((i + 1) / arcSegs);
         const am  = (a0 + a1) / 2;
-        // Standard circle: x = cos(a), y = sin(a)
-        const lx  = archCX + Math.cos(am) * archR;
-        const ly  = archCY + Math.sin(am) * archR;
-        const len = archR * Math.abs(a1 - a0) + 0.04;
-        const sm  = new THREE.Mesh(
-          new THREE.BoxGeometry(len * 1.1, 0.22, 0.16), matInscription);
+        const lx  = arcCX + Math.cos(am) * arcR;
+        const ly  = arcCY + Math.sin(am) * arcR;
+        // Skip segments that stray outside leaf bounds
+        if (Math.abs(lx) > leafW + 0.1) continue;
+        if (ly < -leafHalfH || ly > leafHalfH + 0.1) continue;
+        const segLen = arcR * Math.abs(a1 - a0) + 0.03;
+        const sm = new THREE.Mesh(
+          new THREE.BoxGeometry(segLen * 1.08, 0.20, 0.15), matInscription);
         sm.position.set(lx, ly, gz - 0.01);
-        // Tangent angle: perpendicular to the radius at am
         sm.rotation.z = am + Math.PI / 2;
         pivot.add(sm);
       }
 
-      // ── Two rune-stroke columns on this leaf ────────────────────────────────
-      // Inner column: near the seam; outer column: near the outer edge
-      const innerX = seamX * 0.55;   // 55% toward seam from pivot
-      const outerX = seamX * 0.12;   // near outer edge (pivot is at 0)
-      for (const rx of [innerX, outerX]) {
-        for (let i = 0; i < 5; i++) {
-          const ry = -leafHalfH + 1.0 + i * 1.55;
+      // ── Two rune-stroke columns, upper half of leaf ─────────────────────────
+      // Both columns between tree top and arc bottom, on this leaf's half.
+      const col1X = centreX * 0.4;   // inner column, near seam side of centre
+      const col2X = centreX * 1.0;   // outer column, at leaf centre
+      for (const rx of [col1X, col2X]) {
+        for (let i = 0; i < 4; i++) {
+          const ry = treeBaseY + trunkH + 0.5 + i * 1.3;
+          if (ry > leafHalfH - 0.3) continue;  // don't overflow top
           const sm = new THREE.Mesh(
-            new THREE.BoxGeometry(0.14, 0.85, 0.13), matInscription);
+            new THREE.BoxGeometry(0.14, 0.80, 0.13), matInscription);
           sm.position.set(rx, ry, gz - 0.01);
           pivot.add(sm);
         }
       }
 
-      // ── Star of Durin — left leaf only, at the seam, mid-height ───────────
-      if (seamX > 0) {   // seamX > 0 means this is the left leaf
-        const starX   = seamX - 0.1;   // just inside the seam
-        const starY   = 0.8;           // mid-door, eye-level height
+      // ── Star of Durin — left leaf only, seam side, mid-height ──────────────
+      if (sign > 0) {
+        const starX = seamX * 0.75;   // 75% of the way to the seam = local x≈2.4
+        const starY = 0.6;            // just above vertical centre
         const starPts = 7;
         for (let i = 0; i < starPts; i++) {
           const a   = (i / starPts) * Math.PI * 2 - Math.PI / 2;
-          const len = i % 2 === 0 ? 0.52 : 0.30;
+          const len = i % 2 === 0 ? 0.50 : 0.28;
           const rm  = new THREE.Mesh(
-            new THREE.BoxGeometry(0.12, len, 0.12), matInscription);
+            new THREE.BoxGeometry(0.11, len, 0.11), matInscription);
           rm.position.set(
             starX + Math.cos(a) * (len * 0.5 + 0.02),
             starY + Math.sin(a) * (len * 0.5 + 0.02),
@@ -539,10 +544,8 @@ const MoriaDoors = {
       }
     }
 
-    // Left leaf:  centre=+1.6, seam=+3.2, arch angles PI/2→PI  (left half of arch)
-    // Right leaf: centre=-1.6, seam=-3.2, arch angles 0→PI/2   (right half of arch)
-    addLeafGlyphs(pivotLeft,   +leafHalfW / 2, +leafHalfW, Math.PI / 2, Math.PI);
-    addLeafGlyphs(pivotRight,  -leafHalfW / 2, -leafHalfW, 0,           Math.PI / 2);
+    addLeafGlyphs(pivotLeft,   +1);   // left leaf,  seam at local x = +3.2
+    addLeafGlyphs(pivotRight,  -1);   // right leaf, seam at local x = -3.2
 
     // ── Static cliff-face fill: PointLight close to door, can't reach pool ───
     // Radius 22 means it dies out well before x=-28 (pool is ~30 units west).
