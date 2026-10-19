@@ -16,6 +16,7 @@ const LOCATION_MANIFEST = {
   rivendell:   { src:'rivendell.js',       global:'Rivendell'   },
   eregion:     { src:'eregion.js',         global:'Eregion'     },
   moriadoors:  { src:'moria-doors.js',     global:'MoriaDoors'  },
+  moriabridge: { src:'moriabridge.js',     global:'MoriaBridge' },
   // bree:     { src:'bree.js',            global:'Bree'        },
   // shire:    { src:'shire.js',           global:'Shire'       },
   // moria:    { src:'moria.js',           global:'Moria'       },
