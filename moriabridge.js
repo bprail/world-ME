@@ -28,12 +28,20 @@ const MoriaBridge = {
       { color: 0xcc3300, intensity: 0.55, x: -120, y: 20, z:   0 },  // balrog west
       { color: 0x551100, intensity: 0.28, x:   42, y:-30, z:   0 },  // chasm ember
       { color: 0x6a3010, intensity: 0.20, x:  -35, y: 15, z:   0 },  // hall fill
-      { color: 0x88ccaa, intensity: 0.40, x:   62, y:  8, z:  40 },  // lothlorien spill
+      { color: 0x88ccaa, intensity: 0.40, x:   74, y:  8, z:  36 },  // lothlorien spill
     ],
   },
 
   hillHeight(x, z) {
-    return window.api_noise2d(x * 0.06, z * 0.06) * 0.4;
+    const noise = window.api_noise2d(x * 0.06, z * 0.06) * 0.5;
+    // Chasm band: x=22→68, z=±9 — terrain drops sharply into the void
+    const inChasmX = x > 28 && x < 68;
+    const chasmZFade = Math.max(0, 1 - Math.abs(z) / 9);   // 1 at z=0, 0 at z=±9
+    const chasmXFade = inChasmX
+      ? Math.min(1, Math.min(x - 22, 68 - x) / 4)          // ramp in over 4 units at each edge
+      : 0;
+    const chasmDrop = chasmZFade * chasmXFade * 30;         // max 30 units deep
+    return noise - chasmDrop;
   },
 
   vertexColor(vx, vy, vz, noise2d, lerp) {
@@ -53,10 +61,10 @@ const MoriaBridge = {
     { pos:{x:42,z:0}, radius:5,
       text:'"The Bridge of Khazad-dûm was slender and had no rail or curb. It spanned the chasm with one curving spring of fifty feet."',
       cite:'— J.R.R. Tolkien, The Fellowship of the Ring' },
-    { pos:{x:64,z:5}, radius:6,
+    { pos:{x:70,z:2}, radius:6,
       text:'"Fly, you fools!" he cried, and was gone. The bridge cracked and fell. In the fire and the smoke Gandalf fell, and the shadow went down into darkness.',
       cite:'— J.R.R. Tolkien, The Fellowship of the Ring' },
-    { pos:{x:62,z:30}, radius:6,
+    { pos:{x:74,z:22}, radius:6,
       text:'"They stood at last on the eastern side of the Misty Mountains, and Aragorn said nothing, for he wept."',
       cite:'— J.R.R. Tolkien, The Fellowship of the Ring' },
   ],
@@ -66,14 +74,14 @@ const MoriaBridge = {
 
   arrivals: {
     moriadoors: { x: -55, z: 0, yaw: Math.PI * 1.5 },   // deep in hall, face east
-    lothlorien: { x:  62, z: 44, yaw: Math.PI * 0.5 },   // ante-room, face west
+    lothlorien: { x:  74, z: 24, yaw: Math.PI },   // corridor, face south toward light
   },
 
   boundary: 120,
 
   transitions: [
     { trigger: { x: -70, z:  0, radius: 7 }, to: 'moriadoors' },
-    { trigger: { x:  62, z: 50, radius: 6 }, to: 'lothlorien' },
+    { trigger: { x:  74, z: 26, radius: 4 }, to: 'lothlorien' },
   ],
 
   // Only the elevated bridge needs walkables — everything else is ground-level terrain.
@@ -219,25 +227,40 @@ const MoriaBridge = {
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CHASM VOID — flanks close against bridge, top at y=1 (above terrain)
-    // Bridge at z=0, width 1.4 → edge at z=±0.7
-    // Flank blocks: z=±(2.5 → 16), covering full gap to cavern wall
+    // CHASM — two-component design:
+    //   1. The terrain mesh naturally drops (hillHeight returns ~-30 in chasm band)
+    //   2. A pitch-black void box near the bottom hides the terrain floor,
+    //      making the chasm read as bottomless. Fog handles the fade above it.
+    //
+    // The terrain drop is handled in hillHeight — no side wall boxes needed.
+    // We only need thin void side-wall boxes to prevent seeing through the
+    // terrain mesh sides, and the bottom void box.
     // ═══════════════════════════════════════════════════════════════════════════
-    const CHASM_H=110, CHASM_TOP=1;
-    const CHASM_X0=22, CHASM_X1=68, CHASM_DX=CHASM_X1-CHASM_X0;
-    // Each flank: inner edge at z=±1.8, outer edge at z=±16 → width=14.2, centre z=±8.9
-    const mkChasm=(cz)=>{
-      const m=new THREE.Mesh(new THREE.BoxGeometry(CHASM_DX,CHASM_H,14),matVoid);
-      m.position.set((CHASM_X0+CHASM_X1)/2, CHASM_TOP-CHASM_H/2, cz);
+    const CHASM_X0=28, CHASM_X1=68, CHASM_DX=CHASM_X1-CHASM_X0;
+    const CHASM_DROP = -28;   // terrain bottom of chasm (matches hillHeight minimum)
+
+    // Thin void side walls — just enough to seal terrain mesh edges (3 units wide)
+    // Inner edge at z=±1.8 (bridge half-width 0.7 + margin), outer edge at z=±16
+    const mkChasmSide=(cz)=>{
+      const m=new THREE.Mesh(new THREE.BoxGeometry(CHASM_DX, 35, 14), matVoid);
+      m.position.set((CHASM_X0+CHASM_X1)/2, CHASM_DROP - 35/2, cz);
       scene.add(m);
     };
-    mkChasm(-9); mkChasm(9);  // north and south flanks
-    // Floor
-    const cf=new THREE.Mesh(new THREE.BoxGeometry(CHASM_DX,2,22),matVoid);
-    cf.position.set((CHASM_X0+CHASM_X1)/2,CHASM_TOP-CHASM_H-1,0); scene.add(cf);
-    // Glowing crack
-    const ck=new THREE.Mesh(new THREE.BoxGeometry(CHASM_DX-4,0.3,1.4),matCrack);
-    ck.position.set((CHASM_X0+CHASM_X1)/2,CHASM_TOP-CHASM_H,0); scene.add(ck);
+    mkChasmSide(-9); mkChasmSide(9);
+
+    // Bottom void box — pitch black, sits just above the terrain floor.
+    // Blocks the view of the actual terrain bottom so it looks like infinite depth.
+    // Positioned so its TOP is at CHASM_DROP + a few units (the fog handles the rest).
+    const VOID_BOX_TOP = CHASM_DROP + 4;  // top of void box, slightly above terrain bottom
+    const VOID_BOX_H   = 30;              // tall enough that fog fully hides the lower edge
+    const voidBox = new THREE.Mesh(new THREE.BoxGeometry(CHASM_DX + 4, VOID_BOX_H, 22), matVoid);
+    voidBox.position.set((CHASM_X0+CHASM_X1)/2, VOID_BOX_TOP - VOID_BOX_H/2, 0);
+    scene.add(voidBox);
+
+    // Glowing crack on top of the void box — ember light from below
+    const ck=new THREE.Mesh(new THREE.BoxGeometry(CHASM_DX-4, 0.3, 1.4), matCrack);
+    ck.position.set((CHASM_X0+CHASM_X1)/2, VOID_BOX_TOP, 0);
+    scene.add(ck);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // NORTH HALL — x=-70→0, z=-20→+20, ceiling y=30
@@ -342,9 +365,12 @@ const MoriaBridge = {
     makeTorch(8,0, PASS_W/2-0.3);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CHASM SPACE CAVERN WALLS — x=20→68, z=±14→±16 (tight against chasm flanks)
+    // CHASM SPACE CAVERN WALLS — x=20→68, z=±16
+    // North and south walls run the full length including the ground strip x=20→28.
     // ═══════════════════════════════════════════════════════════════════════════
-    const CAVN_H=30, CAVN_DX=50, CAVN_XC=44;
+    const CAVN_H=30;
+    // North cavern wall (x=20→68, 48 units long)
+    const CAVN_XC=44, CAVN_DX=48;
     const cvN=new THREE.Mesh(new THREE.BoxGeometry(CAVN_DX,CAVN_H,WALL_T),matStone);
     cvN.position.set(CAVN_XC,CAVN_H/2,-16); scene.add(cvN);
     const cvS=cvN.clone(); cvS.position.z=16; scene.add(cvS);
@@ -352,16 +378,11 @@ const MoriaBridge = {
     const cvC=new THREE.Mesh(new THREE.BoxGeometry(CAVN_DX,1.2,34),matStone);
     cvC.position.set(CAVN_XC,CAVN_H,0); scene.add(cvC);
 
-    // West wall of chasm space (between passage exit and bridge — x=20)
-    const chasmWestWall=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,CAVN_H,32),matStone);
-    chasmWestWall.position.set(20,CAVN_H/2,0); scene.add(chasmWestWall);
-    // Opening in west wall for passage (z=-PASS_W/2 to +PASS_W/2, y=0 to PASS_H)
-    // Achieved by two panels above and to the sides of the opening
-    // Side panels (north of passage opening)
+    // West wall of chasm space at x=20 — has opening for passage.
+    // Built as three panels: north of opening, south of opening, above opening.
     const cwPN=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,CAVN_H,(16-PASS_W/2)-0.5),matStone);
-    cwPN.position.set(20,CAVN_H/2,(-16+(16-PASS_W/2)/2+0.5)); scene.add(cwPN);
+    cwPN.position.set(20,CAVN_H/2,-16+(16-PASS_W/2)/2-0.25); scene.add(cwPN);
     const cwPS=cwPN.clone(); cwPS.position.z=-cwPN.position.z; scene.add(cwPS);
-    // Panel above passage opening
     const cwPA=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,CAVN_H-PASS_H,PASS_W),matStone);
     cwPA.position.set(20,PASS_H+(CAVN_H-PASS_H)/2,0); scene.add(cwPA);
 
@@ -371,78 +392,91 @@ const MoriaBridge = {
     makeTorch(20.2,0,-5);
     makeTorch(20.2,0, 5);
 
-    // North wall blocking east bridge exit — spans x=60→74, z=-16→-2
-    // South face at z=-2 clears the bridge (half-width 0.7). Joins the north cavern wall.
-    const blockN=new THREE.Mesh(new THREE.BoxGeometry(14,CAVN_H,14),matStone);
-    blockN.position.set(67,CAVN_H/2,-9); scene.add(blockN);
+    // North wall blocking east bridge exit — west face flush with chasm east edge (x=68)
+    // Spans x=68→80, z=-16→-2. South face at z=-2 clears the bridge.
+    const blockN=new THREE.Mesh(new THREE.BoxGeometry(12,CAVN_H,14),matStone);
+    blockN.position.set(74,CAVN_H/2,-9); scene.add(blockN);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // EAST LANDING — x=60→72, z=0→14, h=20
+    // EAST LANDING + CORRIDOR + ANTE-ROOM
+    // All shifted east of the chasm (chasm east edge x≈68+8=76 inner).
+    // Landing: x=68→80, z=-2→+10 (butts against north blocking wall at z=-2)
+    // Corridor: x=70→78, z=10→28 (runs south, width=8)
+    // Ante-room: x=68→80, z=28→42
     // ═══════════════════════════════════════════════════════════════════════════
     const LAND_H=20;
-    const landF=new THREE.Mesh(new THREE.BoxGeometry(14,0.4,14),matStone);
-    landF.position.set(66,-0.2,7); scene.add(landF);
-    const landE=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,LAND_H,14),matStone);
-    landE.position.set(73,LAND_H/2,7); scene.add(landE);
-    const landC=new THREE.Mesh(new THREE.BoxGeometry(14,0.8,14),matStone);
-    landC.position.set(66,LAND_H,7); scene.add(landC);
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SOUTH CORRIDOR — x=58→66, z=14→32
-    // ═══════════════════════════════════════════════════════════════════════════
     const CORR_H=14;
+    const ANT_H=14;
+
+    // ── Landing (x=68→80, z=-2→+10) ─────────────────────────────────────────
+    const landF=new THREE.Mesh(new THREE.BoxGeometry(12,0.4,12),matStone);
+    landF.position.set(74,-0.2,4); scene.add(landF);
+    // East wall of landing
+    const landE=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,LAND_H,12),matStone);
+    landE.position.set(80,LAND_H/2,4); scene.add(landE);
+    // Ceiling
+    const landC=new THREE.Mesh(new THREE.BoxGeometry(12,0.8,12),matStone);
+    landC.position.set(74,LAND_H,4); scene.add(landC);
+
+    // ── South corridor (x=70→78, z=10→28, centre z=19) ──────────────────────
     const cWW=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,CORR_H,18),matStone);
-    cWW.position.set(58,CORR_H/2,23); scene.add(cWW);
-    const cWE=cWW.clone(); cWE.position.x=66; scene.add(cWE);
+    cWW.position.set(70,CORR_H/2,19); scene.add(cWW);
+    const cWE=cWW.clone(); cWE.position.x=78; scene.add(cWE);
     const cC=new THREE.Mesh(new THREE.BoxGeometry(8,0.6,18),matStone);
-    cC.position.set(62,CORR_H,23); scene.add(cC);
+    cC.position.set(74,CORR_H,19); scene.add(cC);
     const cF=new THREE.Mesh(new THREE.BoxGeometry(8,0.4,18),matStone);
-    cF.position.set(62,-0.2,23); scene.add(cF);
-    [16,22,28].forEach(tz=>{
-      makeTorch(59.2,0,tz);
-      makeTorch(64.8,0,tz);
+    cF.position.set(74,-0.2,19); scene.add(cF);
+    [12,18,24].forEach(tz=>{
+      makeTorch(71.2,0,tz);
+      makeTorch(76.8,0,tz);
     });
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ANTE-ROOM (Lothlórien light chamber) — x=56→68, z=32→46
-    // A small bright room. Doorway at z=32 (south end of corridor) lets light spill
-    // obliquely back north into the corridor. No glowing pane — just geometry + light.
-    // ═══════════════════════════════════════════════════════════════════════════
-    const ANT_H=14;
-    // Floor
+    // ── Ante-room (x=68→80, z=28→42) ────────────────────────────────────────
     const antF=new THREE.Mesh(new THREE.BoxGeometry(12,0.4,14),matStone);
-    antF.position.set(62,-0.2,39); scene.add(antF);
-    // Ceiling
+    antF.position.set(74,-0.2,35); scene.add(antF);
     const antC=new THREE.Mesh(new THREE.BoxGeometry(12,0.6,14),matStone);
-    antC.position.set(62,ANT_H,39); scene.add(antC);
-    // West wall
+    antC.position.set(74,ANT_H,35); scene.add(antC);
     const antWW=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,ANT_H,14),matStone);
-    antWW.position.set(56,ANT_H/2,39); scene.add(antWW);
-    // East wall
-    const antWE=antWW.clone(); antWE.position.x=68; scene.add(antWE);
-    // North wall with doorway opening (matches corridor width of 8, centred on x=62)
-    // Left panel (x=56→58)
+    antWW.position.set(68,ANT_H/2,35); scene.add(antWW);
+    const antWE=antWW.clone(); antWE.position.x=80; scene.add(antWE);
+    // North wall of ante-room — doorway opening matches corridor width (8), centred x=74
     const antNL=new THREE.Mesh(new THREE.BoxGeometry(2,ANT_H,WALL_T),matStone);
-    antNL.position.set(57,ANT_H/2,32); scene.add(antNL);
-    // Right panel (x=66→68)
-    const antNR=antNL.clone(); antNR.position.x=67; scene.add(antNR);
-    // Transom above doorway
+    antNL.position.set(69,ANT_H/2,28); scene.add(antNL);
+    const antNR=antNL.clone(); antNR.position.x=79; scene.add(antNR);
     const antNT=new THREE.Mesh(new THREE.BoxGeometry(8,ANT_H-CORR_H,WALL_T),matStone);
-    antNT.position.set(62,CORR_H+(ANT_H-CORR_H)/2,32); scene.add(antNT);
-    // South far wall (beyond transition)
+    antNT.position.set(74,CORR_H+(ANT_H-CORR_H)/2,28); scene.add(antNT);
+    // South far wall
     const antWS=new THREE.Mesh(new THREE.BoxGeometry(12,ANT_H,WALL_T),matStone);
-    antWS.position.set(62,ANT_H/2,46); scene.add(antWS);
+    antWS.position.set(74,ANT_H/2,42); scene.add(antWS);
 
-    // Bright daylight point light inside the ante-room — casts oblique light through doorway
-    const daylightLight=new THREE.PointLight(0xaaffcc,3.0,30);
-    daylightLight.position.set(62,5,42);
-    scene.add(daylightLight);
-    refs.daylightLight=daylightLight;
+    // SpotLight aimed from deep in ante-room northward through the doorway —
+    // creates a visible shaft on the corridor floor and walls.
+    // Position: high up in ante-room (x=74, y=12, z=40)
+    // Target: low on the corridor floor north of doorway (x=74, y=0, z=18)
+    // This diagonal aim (high south → low north) mimics sunlight entering obliquely.
+    const spotTarget = new THREE.Object3D();
+    spotTarget.position.set(74, 0, 18);
+    scene.add(spotTarget);
 
-    // A secondary cooler fill inside ante-room
-    const daylightFill=new THREE.PointLight(0x88ddaa,1.2,20);
-    daylightFill.position.set(62,8,38);
-    scene.add(daylightFill);
+    const daylightSpot = new THREE.SpotLight(0xaaffcc, 5.0);
+    daylightSpot.position.set(74, 12, 40);
+    daylightSpot.target = spotTarget;
+    daylightSpot.angle = Math.PI * 0.13;     // narrow beam
+    daylightSpot.penumbra = 0.35;            // soft edge
+    daylightSpot.distance = 50;
+    daylightSpot.castShadow = false;
+    scene.add(daylightSpot);
+    refs.daylightLight = daylightSpot;
+
+    // Ambient fill inside ante-room so it reads as bright/exterior
+    const anteFill = new THREE.PointLight(0x88ffcc, 1.5, 18);
+    anteFill.position.set(74, 5, 36);
+    scene.add(anteFill);
+
+    // Floor pool at the base of the shaft — warm scatter where light hits ground
+    const floorPool = new THREE.PointLight(0xccffdd, 0.8, 10);
+    floorPool.position.set(74, 0.3, 20);
+    scene.add(floorPool);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BALROG FIRE — deep west
@@ -494,7 +528,8 @@ const MoriaBridge = {
     };
     mkVoid(-82,25,0,4,50,180);    // west far wall
     mkVoid(0,25,-30,160,50,4);    // north far wall
-    mkVoid(62,15,54,20,30,4);     // south far wall (beyond ante-room)
+    mkVoid(74,15,46,16,30,4);     // south far wall (beyond ante-room)
+    mkVoid(84,15,20,4,30,50);     // east far wall (beyond landing/corridor)
 
     return refs;
   },
