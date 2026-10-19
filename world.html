@@ -723,8 +723,8 @@ function animate(){
     checkTransitions(camera.position);
   }
 
-  // Location per-frame animation
-  if(currentLoc&&locRefs) currentLoc.onFrame(t,dt,locRefs);
+  // Location per-frame animation — playerPos is camera.position (THREE.Vector3)
+  if(currentLoc&&locRefs) currentLoc.onFrame(t,dt,locRefs,camera.position);
 
   // Stars
   starCamera.quaternion.copy(camera.quaternion);
