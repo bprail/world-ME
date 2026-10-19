@@ -478,40 +478,6 @@ const MoriaBridge = {
     hwFloor.position.set(0, -0.2, (HW_ZN+HW_ZS)/2);
     scene.add(hwFloor);
 
-    // ── Narrow east ledge — exits hallway at z=-40, runs east to x=26, z=-45 ──
-    // The ledge is 5 wide (north-south), flat. A low parapet on the outer (south) edge.
-    const LEDGE_Z  = -45;
-    const LEDGE_ZH = 2.5;   // half-width north-south = 2.5 → 5 total
-    const LEDGE_XW = 0;     // west start (hallway exit)
-    const LEDGE_XE = 26;    // east end (transition)
-
-    const ledgeSlab = new THREE.Mesh(
-      new THREE.BoxGeometry(LEDGE_XE - LEDGE_XW, 0.4, LEDGE_ZH * 2), matStone
-    );
-    ledgeSlab.position.set((LEDGE_XW + LEDGE_XE)/2, -0.2, LEDGE_Z);
-    scene.add(ledgeSlab);
-
-    // Inner parapet (north side of ledge, against the void)
-    const parapetN = new THREE.Mesh(new THREE.BoxGeometry(LEDGE_XE-LEDGE_XW, 0.7, 0.3), matStone);
-    parapetN.position.set((LEDGE_XW+LEDGE_XE)/2, 0.35, LEDGE_Z - LEDGE_ZH);
-    scene.add(parapetN);
-    // Outer parapet (south side)
-    const parapetS = parapetN.clone();
-    parapetS.position.z = LEDGE_Z + LEDGE_ZH;
-    scene.add(parapetS);
-
-    // Wall face where ledge meets the hall east wall
-    const ledgeEndCap = new THREE.Mesh(new THREE.BoxGeometry(0.4, HALL_H, LEDGE_ZH * 2 + 2), matStone);
-    ledgeEndCap.position.set(LEDGE_XE + 0.2, HALL_H/2, LEDGE_Z);
-    scene.add(ledgeEndCap);
-
-    // Solid void wall below the ledge (so there's no gap under it)
-    const ledgeUnderskirt = new THREE.Mesh(
-      new THREE.BoxGeometry(LEDGE_XE - LEDGE_XW, 6, LEDGE_ZH * 2), matVoid
-    );
-    ledgeUnderskirt.position.set((LEDGE_XW+LEDGE_XE)/2, -3.4, LEDGE_Z);
-    scene.add(ledgeUnderskirt);
-
     // ── Torches in the hall ────────────────────────────────────────────────────
     [
       [-14, -58], [14, -58],
