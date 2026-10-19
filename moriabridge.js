@@ -1,58 +1,55 @@
-// moriabridgeofdurin.js — Durin's Bridge, Moria
-// Sequence: moriadoors <-> moriabridge <-> lothlorien
+// moriabridge.js — Durin's Bridge, Moria
+// Sequence: moriadoors (north, -Z) → cross south (+Z) → lothlorien
 
 const MoriaBridge = {
 
   name:     "Durin's Bridge",
   subtitle: "Moria · The Bridge of Khazad-dûm",
 
-  // ─── Atmosphere ────────────────────────────────────────────────────────────
+  // ─── Atmosphere ─────────────────────────────────────────────────────────────
   atmosphere: {
-    fogColor:         0x0a0608,
-    fogDensity:       0.022,
+    fogColor:         0x0a0605,
+    fogDensity:       0.024,
     fogType:          'exponential',
-    skyColor:         0x060304,
+    skyColor:         0x060302,
     ambientColor:     0x0d0608,
-    ambientIntensity: 1.2,
-    moonColor:        0x4a2010,   // deep orange-red: firelight tint from chasm
-    moonIntensity:    0.28,
-    moonPosition:     { x: 0, y: 60, z: 0 },   // directly above — fills the void
-    showStars:        false,      // interior cavern
+    ambientIntensity: 1.1,
+    moonColor:        0x4a2010,
+    moonIntensity:    0.22,
+    moonPosition:     { x: 0, y: 60, z: 0 },
+    showStars:        false,
     extraLights: [
-      // Balrog fire glow — warm red from the far end
-      { color: 0xcc3300, intensity: 0.55, x: 0,   y: 25,  z: -80 },
-      // Chasm ember glow — faint orange from below
-      { color: 0x441100, intensity: 0.35, x: 0,   y: -20, z: 0   },
-      // Rim scatter — so the bridge sides catch some light
-      { color: 0x7a3a18, intensity: 0.20, x: 40,  y: 10,  z: -10 },
-      { color: 0x7a3a18, intensity: 0.20, x: -40, y: 10,  z: -10 },
+      // Balrog fire glow from the north (-Z) — the direction they came from
+      { color: 0xcc3300, intensity: 0.60, x: 0,   y: 20,  z: -80 },
+      // Chasm ember glow from below
+      { color: 0x441100, intensity: 0.30, x: 0,   y: -20, z: 0   },
+      // Side rim scatter
+      { color: 0x7a3a18, intensity: 0.18, x:  40, y: 8,   z: 0   },
+      { color: 0x7a3a18, intensity: 0.18, x: -40, y: 8,   z: 0   },
     ],
   },
 
-  // ─── Terrain ───────────────────────────────────────────────────────────────
+  // ─── Terrain ────────────────────────────────────────────────────────────────
   hillHeight(x, z) {
-    const fbm  = window.api_fbm(x * 0.04, z * 0.04);
-    const n2d  = window.api_noise2d(x * 0.09, z * 0.09);
+    const fbm = window.api_fbm(x * 0.04, z * 0.04);
+    const n2d = window.api_noise2d(x * 0.09, z * 0.09);
 
-    // Two large ledge platforms: south (z > 20) and north (z < -20)
-    // The chasm floor sinks sharply in the middle band
-    const southLedge = Math.max(0, (z - 20) * 0.55);
+    // North ledge: z < -20  (moriadoors side)
     const northLedge = Math.max(0, (-z - 20) * 0.55);
-    const ledge = southLedge + northLedge;
+    // South ledge: z > 20   (lothlorien side)
+    const southLedge = Math.max(0, (z  - 20) * 0.55);
+    const ledge = northLedge + southLedge;
 
-    // Chasm dip — terrain drops steeply between z=-20 and z=20
-    const chasmDip = Math.max(0, 1 - Math.abs(z) / 22) * 28;
+    // Chasm dip in the middle band |z| < 22
+    const chasmDip = Math.max(0, 1 - Math.abs(z) / 22) * 30;
 
-    // Rough cavern floor under each ledge
     const roughness = (fbm * 0.6 + n2d * 0.4) * 1.8;
 
     return ledge + roughness - chasmDip;
   },
 
   vertexColor(vx, vy, vz, noise2d, lerp) {
-    // Base: dark basalt grey
     const n = noise2d(vx * 0.07, vz * 0.07);
-    // Warm ember tint where terrain is low (the chasm rim gets a reddish cast)
     const chasmProx = Math.max(0, 1 - Math.abs(vz) / 30);
     const r = lerp(0.08, 0.22, n) + chasmProx * 0.08;
     const g = lerp(0.05, 0.11, n) + chasmProx * 0.02;
@@ -60,537 +57,447 @@ const MoriaBridge = {
     return [r, g, b];
   },
 
-  onPath(x, z) {
-    // Path runs straight along x≈0, from south ledge across the bridge to north ledge
-    const distFromCentre = Math.abs(x);
-    const onBridgeLane = distFromCentre < 2.0 ? 1 - distFromCentre / 2.0 : 0;
-    return onBridgeLane;
-  },
+  // No visible path ribbon for this location
+  onPath: (() => 0),
 
-  // ─── Path waypoints ────────────────────────────────────────────────────────
-  pathWaypoints: [
-    [  0,  68 ],   // south start — moriadoors arrival end
-    [  0,  40 ],
-    [  0,  22 ],   // south rim
-    [  0,   0 ],   // bridge midpoint over chasm
-    [  0, -22 ],   // north rim
-    [  0, -40 ],
-    [  0, -68 ],   // north end — lothlorien transition
-  ],
-
-  // ─── Lore points ───────────────────────────────────────────────────────────
+  // ─── Lore points ─────────────────────────────────────────────────────────────
+  // In book order walking south (+Z): moriadoors (-Z) → lothlorien (+Z)
   lorePoints: [
     {
-      pos:    { x: 2, z: 50 },
+      // Approaching the bridge from Moria — the Fellowship hears the Balrog
+      pos:    { x: 2, z: -52 },
       radius: 7,
-      text:   '"The Bridge of Khazad-dûm! I am a servant of the Secret Fire, wielder of the flame of Anor."',
+      text:   '"Doom, doom, doom the drums in the deep... They are coming."',
       cite:   '— J.R.R. Tolkien, The Fellowship of the Ring, Book II',
     },
     {
-      pos:    { x: -3, z: 18 },
+      // North end of the bridge — Gandalf turns to face the Balrog
+      pos:    { x: -2, z: -20 },
       radius: 6,
-      text:   '"The Bridge was slender and had no rail or curb. It spanned the chasm with one curving spring of fifty feet."',
+      text:   '"You cannot pass! I am a servant of the Secret Fire, wielder of the flame of Anor. You cannot pass. The dark fire will not avail you, flame of Udûn."',
+      cite:   '— Gandalf the Grey, at the Bridge of Khazad-dûm',
+    },
+    {
+      // Crown of the bridge — the physical span
+      pos:    { x: 1, z: 0 },
+      radius: 5,
+      text:   '"The Bridge of Khazad-dûm was slender and had no rail or curb. It spanned the chasm with one curving spring of fifty feet."',
       cite:   '— J.R.R. Tolkien, The Fellowship of the Ring',
     },
     {
-      pos:    { x: 2, z: 0 },
+      // South end — Gandalf falls with the Balrog
+      pos:    { x: -1, z: 20 },
       radius: 6,
-      text:   '"Fly, you fools!" — with those words he fell into shadow, and the Fellowship was broken in grief.',
+      text:   '"Fly, you fools!" he cried, and was gone. The bridge cracked and fell. In the fire and the smoke Gandalf fell, and the shadow went down into darkness.',
       cite:   '— J.R.R. Tolkien, The Fellowship of the Ring',
     },
     {
-      pos:    { x: -2, z: -18 },
-      radius: 6,
-      text:   '"A Balrog: a demon of the ancient world... a thing of shadow and flame, a Balrog of Morgoth."',
-      cite:   '— J.R.R. Tolkien, The Fellowship of the Ring',
-    },
-    {
-      pos:    { x: 3, z: -50 },
+      // South ledge — the Fellowship emerges into daylight beyond
+      pos:    { x: 2, z: 52 },
       radius: 7,
-      text:   '"You cannot pass! I am the wielder of the flame of Anor, and by it I will not let you pass!"',
-      cite:   '— Gandalf the Grey, at Durin\'s Bridge',
+      text:   '"They stood at last on the eastern side of the Misty Mountains, and Aragorn said nothing, for he wept."',
+      cite:   '— J.R.R. Tolkien, The Fellowship of the Ring',
     },
   ],
 
-  // ─── Player start / arrivals ───────────────────────────────────────────────
-  start: { x: 0, z: 60, yaw: Math.PI },   // facing north toward the bridge
+  // ─── Player start / arrivals ─────────────────────────────────────────────────
+  // Direct URL load: spawn on north ledge facing south (into the scene, toward +Z)
+  start: { x: 0, z: -60, yaw: Math.PI },
 
   arrivals: {
-    moriadoors:  { x: 0, z: 62, yaw: Math.PI         },  // arriving from south (Doors of Durin)
-    lothlorien:  { x: 0, z: -62, yaw: 0              },  // arriving from north (Lothlórien)
+    // Coming from moriadoors (north, -Z side): spawn at north ledge, face south
+    moriadoors: { x: 0, z: -62, yaw: Math.PI },
+    // Coming from lothlorien (south, +Z side): spawn at south ledge, face north
+    lothlorien: { x: 0, z:  62, yaw: 0       },
   },
 
-  // ─── Boundary and transitions ──────────────────────────────────────────────
+  // ─── Boundary and transitions ────────────────────────────────────────────────
   boundary: 90,
 
   transitions: [
     {
-      trigger: { x: 0, z: 75, radius: 9 },
+      trigger: { x: 0, z: -76, radius: 9 },
       to: 'moriadoors',
     },
     {
-      trigger: { x: 0, z: -75, radius: 9 },
+      trigger: { x: 0, z:  76, radius: 9 },
       to: 'lothlorien',
     },
   ],
 
-  // ─── Walkable elevated surfaces ────────────────────────────────────────────
-  // The bridge itself — a narrow span across the chasm.
-  // Five segments: south approach ramp, flat south ledge approach, the true span (three pieces), north side.
+  // ─── Walkable elevated surfaces ──────────────────────────────────────────────
+  // Bridge runs along Z axis. Width 2.0 — narrow, as in the book.
+  // yStart = Y at local -Z end, yEnd = Y at local +Z end.
+  // Segments ordered north to south (-Z to +Z).
   walkables: [
-    // South ledge approach — terrain is already elevated; just a gentle raised walkway
-    { x:0, z: 30, yaw:0, length:14, width:4.0, yStart:3.2, yEnd:3.5 },
-
-    // South ramp — rises from ledge level up to the bridge lip
-    { x:0, z: 18, yaw:0, length:10, width:3.5, yStart:3.5, yEnd:6.0 },
-
-    // Bridge span — southern half (rises very slightly toward centre — old lore says it bows upward)
-    { x:0, z:  9, yaw:0, length:14, width:3.0, yStart:6.0, yEnd:7.2 },
-
-    // Bridge crown — the narrow highest point
-    { x:0, z:  0, yaw:0, length: 6, width:3.0, yStart:7.2, yEnd:7.2 },
-
-    // Bridge span — northern half (descends from crown)
-    { x:0, z: -9, yaw:0, length:14, width:3.0, yStart:7.2, yEnd:6.0 },
-
-    // North ramp — descends to north ledge level
-    { x:0, z:-18, yaw:0, length:10, width:3.5, yStart:6.0, yEnd:3.5 },
-
-    // North ledge approach
-    { x:0, z:-30, yaw:0, length:14, width:4.0, yStart:3.5, yEnd:3.2 },
+    // North ledge approach (moriadoors side)
+    { x:0, z:-30, yaw:0, length:16, width:4.0, yStart:3.2, yEnd:3.5 },
+    // North ramp up to bridge lip
+    { x:0, z:-18, yaw:0, length:10, width:2.5, yStart:3.5, yEnd:6.5 },
+    // Bridge span north half — slight bow upward
+    { x:0, z: -8, yaw:0, length:14, width:2.0, yStart:6.5, yEnd:7.5 },
+    // Bridge crown
+    { x:0, z:  0, yaw:0, length: 6, width:2.0, yStart:7.5, yEnd:7.5 },
+    // Bridge span south half
+    { x:0, z:  8, yaw:0, length:14, width:2.0, yStart:7.5, yEnd:6.5 },
+    // South ramp down to ledge
+    { x:0, z: 18, yaw:0, length:10, width:2.5, yStart:6.5, yEnd:3.5 },
+    // South ledge approach (lothlorien side)
+    { x:0, z: 30, yaw:0, length:16, width:4.0, yStart:3.5, yEnd:3.2 },
   ],
 
-  // ─── Barriers (chasm — no-go zones flanking the bridge) ───────────────────
+  // ─── Barriers ────────────────────────────────────────────────────────────────
+  // Chasm flanks: tight against bridge width (bridge is 2 units wide = ±1 from x=0).
+  // Barriers start at x=±1.8 so there is no gap to fall through.
+  // Also hard back-walls at cavern edges.
   barriers: [
-    // Chasm left (west) flank — wide region the player cannot enter
-    { x: -14, z: 0, w: 20, d: 60, yaw: 0 },
-    // Chasm right (east) flank
-    { x:  14, z: 0, w: 20, d: 60, yaw: 0 },
-
-    // Hard walls at the far southern cavern edge
-    { x: 0, z:  86, w: 180, d: 6, yaw: 0 },
-    // Hard walls at the far northern cavern edge
-    { x: 0, z: -86, w: 180, d: 6, yaw: 0 },
+    // West chasm flank
+    { x: -10, z: 0, w: 16, d: 60, yaw: 0 },
+    // East chasm flank
+    { x:  10, z: 0, w: 16, d: 60, yaw: 0 },
+    // North cavern back wall
+    { x: 0, z: -87, w: 180, d: 6, yaw: 0 },
+    // South cavern back wall
+    { x: 0, z:  87, w: 180, d: 6, yaw: 0 },
   ],
 
-  // ─── Scene construction ────────────────────────────────────────────────────
+  // ─── Scene construction ───────────────────────────────────────────────────────
   buildScene(THREE, scene, groundY, MAT) {
 
     const refs = {
-      chasmFires:    [],
-      chasmLights:   [],
-      bridgeFire:    null,
-      bridgeLight:   null,
-      balrogGlow:    null,
-      time:          0,
+      chasmFires:  [],
+      chasmLights: [],
+      balrogGlow:  null,
+      balrogFill:  null,
+      balrogFire:  null,
+      staffTip:    null,
+      staffLight:  null,
+      time:        0,
     };
 
-    // ── Helper: random in range ──────────────────────────────────────────────
     const rnd = (a, b) => a + Math.random() * (b - a);
 
-    // ── Materials ────────────────────────────────────────────────────────────
-    const matBridgeStone = new THREE.MeshStandardMaterial({
-      color:     0x1a1210,
-      roughness: 0.92,
-      metalness: 0.06,
+    // ── Materials ──────────────────────────────────────────────────────────────
+    const matBridge = new THREE.MeshStandardMaterial({
+      color: 0x1c1410, roughness: 0.93, metalness: 0.05,
     });
-    const matRimStone = new THREE.MeshStandardMaterial({
-      color:     0x141010,
-      roughness: 0.95,
-      metalness: 0.04,
+    const matKerb = new THREE.MeshStandardMaterial({
+      color: 0x141010, roughness: 0.96, metalness: 0.03,
+    });
+    const matCol = new THREE.MeshStandardMaterial({
+      color: 0x1a1614, roughness: 0.90, metalness: 0.06,
     });
     const matFireCore = new THREE.MeshStandardMaterial({
-      color:     0xff6600,
-      emissive:  0xff4400,
-      emissiveIntensity: 3.5,
-      roughness: 0.3,
+      color: 0xff6600, emissive: 0xff4400, emissiveIntensity: 3.5, roughness: 0.3,
     });
     const matFireOuter = new THREE.MeshStandardMaterial({
-      color:     0xff2200,
-      emissive:  0xdd1100,
-      emissiveIntensity: 2.0,
-      roughness: 0.5,
-      transparent: true,
-      opacity: 0.72,
+      color: 0xff2200, emissive: 0xdd1100, emissiveIntensity: 2.0,
+      roughness: 0.5, transparent: true, opacity: 0.70,
     });
-    const matEmber = new THREE.MeshStandardMaterial({
-      color:     0xffaa00,
-      emissive:  0xff8800,
-      emissiveIntensity: 1.8,
-      roughness: 0.4,
-    });
-    const matChasm = new THREE.MeshStandardMaterial({
-      color:     0x060202,
-      roughness: 1.0,
-      metalness: 0.0,
-    });
-    const matGlowRed = new THREE.MeshStandardMaterial({
-      color:     0x330800,
-      emissive:  0xcc2200,
-      emissiveIntensity: 1.4,
-      roughness: 0.7,
-      transparent: true,
-      opacity: 0.6,
-    });
-    const matColGrey = new THREE.MeshStandardMaterial({
-      color:     0x1c1614,
-      roughness: 0.88,
-      metalness: 0.08,
+    const matVoid = new THREE.MeshStandardMaterial({
+      color: 0x050202, roughness: 1.0, metalness: 0.0,
     });
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // THE BRIDGE — narrow stone span across the chasm
-    // ═══════════════════════════════════════════════════════════════════════
-    const bridgeDef = [
-      // { z, halfLen, topW, sideH } — matches walkable segments
-      { zc:  30, halfLen: 7,  topW: 4.0, sideH: 0.6, yTop: 3.4  },
-      { zc:  18, halfLen: 5,  topW: 3.5, sideH: 0.7, yTop: 5.0  },
-      { zc:   9, halfLen: 7,  topW: 3.0, sideH: 0.5, yTop: 6.6  },
-      { zc:   0, halfLen: 3,  topW: 3.0, sideH: 0.5, yTop: 7.2  },
-      { zc:  -9, halfLen: 7,  topW: 3.0, sideH: 0.5, yTop: 6.6  },
-      { zc: -18, halfLen: 5,  topW: 3.5, sideH: 0.7, yTop: 5.0  },
-      { zc: -30, halfLen: 7,  topW: 4.0, sideH: 0.6, yTop: 3.4  },
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BRIDGE GEOMETRY — narrow stone span, no rails (book-accurate)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Matches walkable segments. Width 2.0 on the span, wider on the ramps/ledges.
+    const bridgeSegs = [
+      { zc: -30, halfLen: 8,  topW: 4.0, sideH: 0.7, yTop: 3.35 },
+      { zc: -18, halfLen: 5,  topW: 2.5, sideH: 0.5, yTop: 5.0  },
+      { zc:  -8, halfLen: 7,  topW: 2.0, sideH: 0.4, yTop: 7.0  },
+      { zc:   0, halfLen: 3,  topW: 2.0, sideH: 0.4, yTop: 7.5  },
+      { zc:   8, halfLen: 7,  topW: 2.0, sideH: 0.4, yTop: 7.0  },
+      { zc:  18, halfLen: 5,  topW: 2.5, sideH: 0.5, yTop: 5.0  },
+      { zc:  30, halfLen: 8,  topW: 4.0, sideH: 0.7, yTop: 3.35 },
     ];
 
-    bridgeDef.forEach(seg => {
+    bridgeSegs.forEach(seg => {
       const len = seg.halfLen * 2;
-      // Top surface slab
-      const slabGeo = new THREE.BoxGeometry(seg.topW, 0.35, len);
-      const slab = new THREE.Mesh(slabGeo, matBridgeStone);
+      // Top slab
+      const slab = new THREE.Mesh(
+        new THREE.BoxGeometry(seg.topW, 0.32, len),
+        matBridge
+      );
       slab.position.set(0, seg.yTop, seg.zc);
       slab.castShadow = true;
       scene.add(slab);
 
-      // Side kerb left
-      const kerbGeo = new THREE.BoxGeometry(0.32, seg.sideH, len);
-      const kerbL = new THREE.Mesh(kerbGeo, matRimStone);
-      kerbL.position.set(-(seg.topW / 2 + 0.16), seg.yTop - seg.sideH / 2 + 0.18, seg.zc);
-      scene.add(kerbL);
-      const kerbR = kerbL.clone();
-      kerbR.position.x = seg.topW / 2 + 0.16;
-      scene.add(kerbR);
+      // Side kerb strips — only on the narrow span sections
+      if (seg.topW <= 2.5) {
+        const kGeo = new THREE.BoxGeometry(0.28, seg.sideH, len);
+        const kL = new THREE.Mesh(kGeo, matKerb);
+        kL.position.set(-(seg.topW / 2 + 0.14), seg.yTop - seg.sideH / 2 + 0.16, seg.zc);
+        scene.add(kL);
+        const kR = kL.clone();
+        kR.position.x *= -1;
+        scene.add(kR);
+      }
     });
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // CHASM VOID WALLS — tall dark geometry descending below the bridge
-    // ═══════════════════════════════════════════════════════════════════════
-    // Left chasm wall
-    const chasmWallGeo = new THREE.BoxGeometry(18, 60, 56);
-    const chasmL = new THREE.Mesh(chasmWallGeo, matChasm);
-    chasmL.position.set(-14, -22, 0);
-    scene.add(chasmL);
-    const chasmR = chasmL.clone();
-    chasmR.position.x = 14;
-    scene.add(chasmR);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHASM VOID GEOMETRY — dark walls and floor filling the abyss
+    // ═══════════════════════════════════════════════════════════════════════════
+    // West and east chasm walls
+    const chasmWallGeo = new THREE.BoxGeometry(20, 70, 52);
+    const chasmWL = new THREE.Mesh(chasmWallGeo, matVoid);
+    chasmWL.position.set(-14, -28, 0);
+    scene.add(chasmWL);
+    const chasmWR = chasmWL.clone();
+    chasmWR.position.x = 14;
+    scene.add(chasmWR);
 
-    // Chasm floor — very deep
-    const chasmFloorGeo = new THREE.BoxGeometry(60, 2, 60);
-    const chasmFloor = new THREE.Mesh(chasmFloorGeo, matChasm);
-    chasmFloor.position.set(0, -55, 0);
+    // Chasm floor — far below
+    const floorGeo = new THREE.BoxGeometry(60, 2, 60);
+    const chasmFloor = new THREE.Mesh(floorGeo, matVoid);
+    chasmFloor.position.set(0, -58, 0);
     scene.add(chasmFloor);
 
-    // Glowing chasm crack along the bottom — faint reddish strip
-    const crackGeo = new THREE.BoxGeometry(2.2, 0.4, 52);
-    const crack = new THREE.Mesh(crackGeo, matGlowRed);
-    crack.position.set(0, -54, 0);
+    // Glowing crack along the chasm floor — ember red
+    const crackMat = new THREE.MeshStandardMaterial({
+      color: 0x330800, emissive: 0xaa1800, emissiveIntensity: 1.2,
+      roughness: 0.7, transparent: true, opacity: 0.7,
+    });
+    const crackGeo = new THREE.BoxGeometry(1.8, 0.3, 48);
+    const crack = new THREE.Mesh(crackGeo, crackMat);
+    crack.position.set(0, -57, 0);
     scene.add(crack);
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // CAVERN WALLS — rough back walls bounding the space
-    // ═══════════════════════════════════════════════════════════════════════
-    const wallH = 70;
-    const wallGeo = new THREE.BoxGeometry(180, wallH, 4);
-    // South cavern back wall
-    const wallS = new THREE.Mesh(wallGeo, matChasm);
-    wallS.position.set(0, wallH / 2 - 10, 86);
-    scene.add(wallS);
-    // North cavern back wall (the gate to Lothlórien lies beyond)
-    const wallN = wallS.clone();
-    wallN.position.z = -86;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CAVERN WALLS, CEILING, BACK WALLS
+    // ═══════════════════════════════════════════════════════════════════════════
+    const wallH = 75;
+    const wallGeoZ = new THREE.BoxGeometry(180, wallH, 5);
+    const wallN = new THREE.Mesh(wallGeoZ, matVoid);
+    wallN.position.set(0, wallH / 2 - 12, -87);
     scene.add(wallN);
+    const wallS = wallN.clone();
+    wallS.position.z = 87;
+    scene.add(wallS);
 
-    // Side walls — very wide slabs
-    const sideWallGeo = new THREE.BoxGeometry(4, wallH, 180);
-    const wallE = new THREE.Mesh(sideWallGeo, matChasm);
-    wallE.position.set(86, wallH / 2 - 10, 0);
+    const wallGeoX = new THREE.BoxGeometry(5, wallH, 180);
+    const wallE = new THREE.Mesh(wallGeoX, matVoid);
+    wallE.position.set(88, wallH / 2 - 12, 0);
     scene.add(wallE);
     const wallW = wallE.clone();
-    wallW.position.x = -86;
+    wallW.position.x = -88;
     scene.add(wallW);
 
-    // Ceiling slab
-    const ceilGeo = new THREE.BoxGeometry(180, 4, 180);
-    const ceil = new THREE.Mesh(ceilGeo, matChasm);
-    ceil.position.set(0, 68, 0);
+    const ceilGeo = new THREE.BoxGeometry(180, 5, 180);
+    const ceil = new THREE.Mesh(ceilGeo, matVoid);
+    ceil.position.set(0, 72, 0);
     scene.add(ceil);
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SOUTH LEDGE — rocky platform where the Fellowship stands
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NORTH LEDGE — moriadoors side (-Z). Columns, rubble, archway.
+    // ═══════════════════════════════════════════════════════════════════════════
     {
-      // Main ledge slab
-      const ledgeGeo = new THREE.BoxGeometry(38, 4, 28);
-      const ledge = new THREE.Mesh(ledgeGeo, matBridgeStone);
-      ledge.position.set(0, groundY(0, 50) + 1.8, 50);
-      ledge.castShadow = true;
+      // Ledge platform slab
+      const ledgeGeo = new THREE.BoxGeometry(42, 4, 32);
+      const ledge = new THREE.Mesh(ledgeGeo, matBridge);
+      ledge.position.set(0, groundY(0, -50) + 1.8, -50);
       scene.add(ledge);
 
-      // Broken columns flanking the bridge entrance — CylinderGeometry, not Box
-      const colPositions = [
-        [-4.5, 22], [4.5, 22],   // bridge mouth
-        [-6,   35], [6,  35],    // mid ledge
-        [-7,   48], [7,  48],    // back of ledge
-      ];
-      colPositions.forEach(([cx, cz]) => {
-        const h = rnd(5, 11);
-        const geo = new THREE.CylinderGeometry(0.55, 0.70, h, 9);
-        const col = new THREE.Mesh(geo, matColGrey);
-        const gy = groundY(cx, cz);
-        col.position.set(cx, gy + h / 2 - h * 0.25, cz);
-        col.rotation.z = rnd(-0.06, 0.06);
+      // Columns flanking the bridge mouth on the north ledge
+      [[-3.5, -22], [3.5, -22], [-6, -34], [6, -34], [-7, -47], [7, -47]].forEach(([cx, cz]) => {
+        const h = rnd(6, 12);
+        const col = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.5, 0.65, h, 9),
+          matCol
+        );
+        col.position.set(cx, groundY(cx, cz) + h / 2 - h * 0.25, cz);
+        col.rotation.z = rnd(-0.05, 0.05);
         col.castShadow = true;
         scene.add(col);
-
-        // Rubble chunk at base
-        const rGeo = new THREE.SphereGeometry(rnd(0.3, 0.7), 8, 6);
-        const rb = new THREE.Mesh(rGeo, MAT.STONE);
-        rb.position.set(cx + rnd(-1, 1), gy + 0.25, cz + rnd(-1, 1));
+        // Rubble at base
+        const r = rnd(0.25, 0.6);
+        const rb = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), MAT.STONE_DARK);
+        rb.position.set(cx + rnd(-0.8, 0.8), groundY(cx, cz) + r * 0.45, cz + rnd(-0.8, 0.8));
         scene.add(rb);
       });
 
-      // Scatter boulders on south ledge
-      for (let i = 0; i < 14; i++) {
-        const bx = rnd(-16, 16);
-        const bz = rnd(36, 70);
-        const s  = rnd(0.4, 1.4);
-        const geo = new THREE.SphereGeometry(s, 10, 7);
-        const b = new THREE.Mesh(geo, MAT.STONE_DARK);
+      // Arch at bridge mouth (north side) — z = -22
+      {
+        const gy = groundY(0, -22);
+        const pL = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.65, 7, 9), matCol);
+        pL.position.set(-2.8, gy + 7 / 2 - 7 * 0.25, -22);
+        scene.add(pL);
+        const pR = pL.clone(); pR.position.x = 2.8; scene.add(pR);
+        const lintel = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.5, 0.9), matBridge);
+        lintel.position.set(0, gy + 6.2, -22);
+        scene.add(lintel);
+      }
+
+      // Scattered boulders on north ledge
+      for (let i = 0; i < 16; i++) {
+        const bx = rnd(-18, 18); const bz = rnd(-72, -35);
+        const s = rnd(0.35, 1.3);
+        const b = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 7), MAT.STONE_DARK);
         b.position.set(bx, groundY(bx, bz) + s * 0.45, bz);
         b.castShadow = true;
         scene.add(b);
       }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // NORTH LEDGE — the far side (Lothlórien passage)
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SOUTH LEDGE — lothlorien side (+Z). Columns, rubble, archway.
+    // ═══════════════════════════════════════════════════════════════════════════
     {
-      const ledgeGeo = new THREE.BoxGeometry(38, 4, 28);
-      const ledge = new THREE.Mesh(ledgeGeo, matBridgeStone);
-      ledge.position.set(0, groundY(0, -50) + 1.8, -50);
-      ledge.castShadow = true;
+      const ledgeGeo = new THREE.BoxGeometry(42, 4, 32);
+      const ledge = new THREE.Mesh(ledgeGeo, matBridge);
+      ledge.position.set(0, groundY(0, 50) + 1.8, 50);
       scene.add(ledge);
 
-      // Columns — partially collapsed
-      const colPositions = [
-        [-4.5, -22], [4.5, -22],
-        [-6,   -35], [6,   -35],
-        [-7,   -48], [7,   -48],
-      ];
-      colPositions.forEach(([cx, cz]) => {
-        const h = rnd(4, 9);
-        const geo = new THREE.CylinderGeometry(0.55, 0.70, h, 9);
-        const col = new THREE.Mesh(geo, matColGrey);
-        const gy = groundY(cx, cz);
-        col.position.set(cx, gy + h / 2 - h * 0.25, cz);
-        col.rotation.z = rnd(-0.09, 0.09);
+      [[-3.5, 22], [3.5, 22], [-6, 34], [6, 34], [-7, 47], [7, 47]].forEach(([cx, cz]) => {
+        const h = rnd(5, 10);
+        const col = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.5, 0.65, h, 9),
+          matCol
+        );
+        col.position.set(cx, groundY(cx, cz) + h / 2 - h * 0.25, cz);
+        col.rotation.z = rnd(-0.08, 0.08);
         col.castShadow = true;
         scene.add(col);
       });
 
-      // North ledge boulders
+      // Arch at bridge mouth (south side) — z = 22
+      {
+        const gy = groundY(0, 22);
+        const pL = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.65, 7, 9), matCol);
+        pL.position.set(-2.8, gy + 7 / 2 - 7 * 0.25, 22);
+        scene.add(pL);
+        const pR = pL.clone(); pR.position.x = 2.8; scene.add(pR);
+        const lintel = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.5, 0.9), matBridge);
+        lintel.position.set(0, gy + 6.2, 22);
+        scene.add(lintel);
+      }
+
       for (let i = 0; i < 12; i++) {
-        const bx = rnd(-16, 16);
-        const bz = rnd(-70, -36);
-        const s  = rnd(0.4, 1.2);
-        const geo = new THREE.SphereGeometry(s, 10, 7);
-        const b = new THREE.Mesh(geo, MAT.STONE_DARK);
+        const bx = rnd(-18, 18); const bz = rnd(35, 72);
+        const s = rnd(0.35, 1.1);
+        const b = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 7), MAT.STONE_DARK);
         b.position.set(bx, groundY(bx, bz) + s * 0.45, bz);
         b.castShadow = true;
         scene.add(b);
       }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // CHASM FIRES — scattered flame columns rising from the deep
-    // ═══════════════════════════════════════════════════════════════════════
-    const chasmFirePositions = [
-      // Left chasm wall fires
-      [-8, -30], [-11, -10], [-9, 10], [-10, 28],
-      // Right chasm wall fires
-      [ 8,  25], [ 11,  5], [  9,-15], [ 10,-32],
-      // Very deep floor fires (barely visible, glow only)
-      [-3, -8], [3, 12], [0, -20], [1, 5],
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BALROG FIRE — from the north (-Z), the direction they came from
+    // ═══════════════════════════════════════════════════════════════════════════
+    {
+      const bigFireGeo = new THREE.SphereGeometry(3.2, 10, 7);
+      const bigFire = new THREE.Mesh(bigFireGeo, matFireOuter.clone());
+      bigFire.position.set(0, groundY(0, -74) + 6, -76);
+      scene.add(bigFire);
+      refs.balrogFire = bigFire;
+
+      const innerGeo = new THREE.SphereGeometry(1.5, 10, 7);
+      const inner = new THREE.Mesh(innerGeo, matFireCore);
+      inner.position.set(0, groundY(0, -74) + 6.5, -76);
+      scene.add(inner);
+
+      // Primary Balrog light — strong pulsing red from north
+      const balrogLight = new THREE.PointLight(0xff2200, 2.4, 80);
+      balrogLight.position.set(0, 12, -72);
+      scene.add(balrogLight);
+      refs.balrogGlow = balrogLight;
+
+      // Secondary fill — orange, shorter range
+      const balrogFill = new THREE.PointLight(0xff6600, 1.1, 55);
+      balrogFill.position.set(0, 5, -58);
+      scene.add(balrogFill);
+      refs.balrogFill = balrogFill;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHASM FIRES — flames rising from the deep on both sides
+    // ═══════════════════════════════════════════════════════════════════════════
+    const chasmFirePos = [
+      [-7, -28], [-9, -12], [-8, 8], [-10, 24],
+      [ 7,  22], [ 9,   6], [ 8,-14], [ 9,-30],
+      // Deep floor fires
+      [-2, -6], [2, 10], [0, -18], [1, 4],
     ];
 
-    chasmFirePositions.forEach(([fx, fz]) => {
-      const baseY = -42 + rnd(-4, 4);
-      const h = rnd(2.5, 6.0);
-
-      // Outer flame — larger, translucent
-      const outerGeo = new THREE.SphereGeometry(rnd(0.6, 1.1), 8, 6);
+    chasmFirePos.forEach(([fx, fz]) => {
+      const baseY = -44 + rnd(-4, 4);
+      const outerGeo = new THREE.SphereGeometry(rnd(0.5, 1.0), 8, 6);
       const outer = new THREE.Mesh(outerGeo, matFireOuter.clone());
-      outer.position.set(fx, baseY + h * 0.5, fz);
+      outer.position.set(fx, baseY + rnd(1, 3), fz);
       scene.add(outer);
+      refs.chasmFires.push(outer);
 
-      // Core — bright
-      const coreGeo = new THREE.SphereGeometry(rnd(0.25, 0.5), 8, 6);
+      const coreGeo = new THREE.SphereGeometry(rnd(0.2, 0.45), 8, 6);
       const core = new THREE.Mesh(coreGeo, matFireCore);
-      core.position.set(fx, baseY + h * 0.6, fz);
+      core.position.set(fx, baseY + rnd(1.5, 3.5), fz);
       scene.add(core);
 
-      // Point light — animated in onFrame
-      const light = new THREE.PointLight(0xff4400, rnd(0.5, 1.1), rnd(14, 24));
-      light.position.set(fx, baseY + h * 0.7, fz);
-      scene.add(light);
-
-      refs.chasmFires.push(outer);
-      refs.chasmLights.push(light);
+      const fl = new THREE.PointLight(0xff4400, rnd(0.4, 1.0), rnd(12, 22));
+      fl.position.set(fx, baseY + rnd(2, 4), fz);
+      scene.add(fl);
+      refs.chasmLights.push(fl);
     });
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // BRIDGE TORCH FIRES — flanking the bridge on the ledge sides
-    // ═══════════════════════════════════════════════════════════════════════
-    const torchPositions = [
-      // South ledge torches
-      [-5.5, 22], [5.5, 22],
-      [-5.5, 35], [5.5, 35],
-      // North ledge torches
-      [-5.5,-22], [5.5,-22],
-      [-5.5,-35], [5.5,-35],
-    ];
-
-    torchPositions.forEach(([tx, tz]) => {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TORCHES on ledges (not on the bridge itself — no rails, no torches)
+    // ═══════════════════════════════════════════════════════════════════════════
+    [[-5, -35], [5, -35], [-5, -48], [5, -48],
+     [-5,  35], [5,  35], [-5,  48], [5,  48]].forEach(([tx, tz]) => {
       const gy = groundY(tx, tz);
-
-      // Torch bracket — thin cylinder
-      const poleGeo = new THREE.CylinderGeometry(0.06, 0.09, 2.0, 7);
-      const pole = new THREE.Mesh(poleGeo, matColGrey);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 2.0, 7), matCol);
       pole.position.set(tx, gy + 1.0, tz);
       scene.add(pole);
-
-      // Bowl
-      const bowlGeo = new THREE.CylinderGeometry(0.22, 0.12, 0.3, 8);
-      const bowl = new THREE.Mesh(bowlGeo, matColGrey);
-      bowl.position.set(tx, gy + 2.15, tz);
+      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.12, 0.28, 8), matCol);
+      bowl.position.set(tx, gy + 2.14, tz);
       scene.add(bowl);
-
-      // Flame blob
-      const flameGeo = new THREE.SphereGeometry(0.18, 8, 6);
-      const flame = new THREE.Mesh(flameGeo, matFireCore);
-      flame.position.set(tx, gy + 2.45, tz);
+      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6), matFireCore);
+      flame.position.set(tx, gy + 2.42, tz);
       scene.add(flame);
       refs.chasmFires.push(flame);
-
-      // Small point light
-      const tl = new THREE.PointLight(0xff6622, 0.9, 10);
+      const tl = new THREE.PointLight(0xff6622, 0.85, 10);
       tl.position.set(tx, gy + 2.6, tz);
       scene.add(tl);
       refs.chasmLights.push(tl);
     });
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // BALROG APPROACH FIRE — dramatic red glow from the north passage
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GANDALF STAFF — on the bridge crown, facing north to oppose the Balrog
+    // ═══════════════════════════════════════════════════════════════════════════
     {
-      // A large fire mass behind the north archway (beyond transition)
-      const bigFireGeo = new THREE.SphereGeometry(2.8, 10, 7);
-      const bigFire = new THREE.Mesh(bigFireGeo, matFireOuter.clone());
-      bigFire.position.set(0, groundY(0, -72) + 5, -74);
-      scene.add(bigFire);
-      refs.bridgeFire = bigFire;
-
-      // Inner core
-      const innerGeo = new THREE.SphereGeometry(1.2, 10, 7);
-      const inner = new THREE.Mesh(innerGeo, matFireCore);
-      inner.position.set(0, groundY(0, -72) + 5.5, -74);
-      scene.add(inner);
-
-      // Balrog atmospheric light — strong red from the north
-      const balrogLight = new THREE.PointLight(0xff2200, 2.2, 70);
-      balrogLight.position.set(0, groundY(0, -72) + 10, -70);
-      scene.add(balrogLight);
-      refs.balrogGlow = balrogLight;
-
-      // Fill light from balrog — secondary orange
-      const balrogFill = new THREE.PointLight(0xff6600, 1.0, 50);
-      balrogFill.position.set(0, 5, -55);
-      scene.add(balrogFill);
-      refs.bridgeLight = balrogFill;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // GANDALF STAND MARKER — glowing white spot on bridge crown
-    // ═══════════════════════════════════════════════════════════════════════
-    {
-      const staffGeo = new THREE.CylinderGeometry(0.055, 0.07, 3.2, 7);
       const staffMat = new THREE.MeshStandardMaterial({
-        color: 0x8888aa,
-        roughness: 0.6,
-        metalness: 0.15,
+        color: 0x8888aa, roughness: 0.6, metalness: 0.15,
       });
-      const staff = new THREE.Mesh(staffGeo, staffMat);
-      staff.position.set(0.3, 7.2 + 1.6, 0);   // standing on bridge crown
+      const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, 3.2, 7), staffMat);
+      // Placed just north of crown centre, leaning very slightly toward Balrog
+      staff.position.set(0.3, 7.5 + 1.6, -0.5);
       staff.rotation.z = 0.04;
       scene.add(staff);
 
-      // Staff tip glow
-      const tipGeo = new THREE.SphereGeometry(0.13, 8, 6);
       const tipMat = new THREE.MeshStandardMaterial({
-        color:    0xddeeff,
-        emissive: 0xaaccff,
-        emissiveIntensity: 3.0,
-        roughness: 0.2,
+        color: 0xddeeff, emissive: 0xaaccff, emissiveIntensity: 3.0, roughness: 0.2,
       });
-      const tip = new THREE.Mesh(tipGeo, tipMat);
-      tip.position.set(0.3, 7.2 + 3.3, 0);
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), tipMat);
+      tip.position.set(0.3, 7.5 + 3.25, -0.5);
       scene.add(tip);
       refs.staffTip = tip;
 
-      // Soft white light from Gandalf's staff
-      const staffLight = new THREE.PointLight(0x8899cc, 0.7, 18);
-      staffLight.position.set(0.3, 7.2 + 3.3, 0);
+      const staffLight = new THREE.PointLight(0x8899cc, 0.75, 18);
+      staffLight.position.copy(tip.position);
       scene.add(staffLight);
       refs.staffLight = staffLight;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // ARCHWAYS — rough stone arches at each ledge entrance to the bridge
-    // ═══════════════════════════════════════════════════════════════════════
-    const buildArch = (zPos, flip) => {
-      const gy = groundY(0, zPos);
-      // Left pier
-      const pierGeo = new THREE.CylinderGeometry(0.5, 0.65, 6, 9);
-      const pierL = new THREE.Mesh(pierGeo, matColGrey);
-      pierL.position.set(-3.0, gy + 3 - 6 * 0.25, zPos);
-      pierL.castShadow = true;
-      scene.add(pierL);
-      const pierR = pierL.clone();
-      pierR.position.x = 3.0;
-      scene.add(pierR);
-
-      // Lintel
-      const lintelGeo = new THREE.BoxGeometry(7.5, 0.5, 0.9);
-      const lintel = new THREE.Mesh(lintelGeo, matBridgeStone);
-      lintel.position.set(0, gy + 5.8, zPos);
-      scene.add(lintel);
-    };
-
-    buildArch(22, false);
-    buildArch(-22, true);
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // FALLEN STONE RUBBLE — scattered near bridge ends
-    // ═══════════════════════════════════════════════════════════════════════
-    const rubbleZones = [
-      [rnd(-12,-5), rnd(30,45)],  [rnd(5,13), rnd(28,42)],
-      [rnd(-13,-4), rnd(-30,-44)],[rnd(4,12), rnd(-29,-43)],
-      [rnd(-3,3),   rnd(42,60)],  [rnd(-3,3), rnd(-43,-60)],
-    ];
-    rubbleZones.forEach(([rx, rz]) => {
-      const s = rnd(0.3, 0.9);
-      const geo = new THREE.SphereGeometry(s, 8, 6);
-      const rb = new THREE.Mesh(geo, MAT.STONE_DARK);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RUBBLE near bridge ends
+    // ═══════════════════════════════════════════════════════════════════════════
+    [
+      [rnd(-10,-4), rnd(28,42)], [rnd(4,10), rnd(26,40)],
+      [rnd(-10,-4), rnd(-28,-42)],[rnd(4,10), rnd(-27,-40)],
+      [rnd(-3, 3),  rnd(44,60)], [rnd(-3, 3), rnd(-44,-60)],
+    ].forEach(([rx, rz]) => {
+      const s = rnd(0.25, 0.8);
+      const rb = new THREE.Mesh(new THREE.SphereGeometry(s, 8, 6), MAT.STONE_DARK);
       rb.position.set(rx, groundY(rx, rz) + s * 0.45, rz);
       rb.castShadow = true;
       scene.add(rb);
@@ -599,48 +506,45 @@ const MoriaBridge = {
     return refs;
   },
 
-  // ─── Per-frame animation ───────────────────────────────────────────────────
+  // ─── Per-frame animation ──────────────────────────────────────────────────────
   onFrame(t, dt, refs, playerPos) {
     refs.time += dt;
     const tt = refs.time;
 
-    // Animate chasm fire blobs — flicker scale and position
+    // Chasm fire flicker
     refs.chasmFires.forEach((fire, i) => {
-      const flicker = 0.88 + 0.22 * Math.sin(tt * 4.1 + i * 1.37)
-                             + 0.10 * Math.sin(tt * 7.3 + i * 2.61);
-      fire.scale.setScalar(flicker);
-      fire.position.y += Math.sin(tt * 2.3 + i * 1.1) * 0.003;
+      const f = 0.88 + 0.22 * Math.sin(tt * 4.1 + i * 1.37)
+                      + 0.10 * Math.sin(tt * 7.3 + i * 2.61);
+      fire.scale.setScalar(f);
     });
 
-    // Animate chasm fire lights — intensity flicker
+    // Chasm light flicker — store base intensities first call
     refs.chasmLights.forEach((light, i) => {
-      const base  = light.intensity;
-      const flick = 0.80 + 0.28 * Math.sin(tt * 5.7 + i * 2.03)
-                         + 0.12 * Math.sin(tt * 11.1 + i * 0.77);
-      light.intensity = (base < 1.4 ? 0.6 : 0.6) + flick * (base < 1.4 ? 0.5 : 1.2);
+      if (light._base === undefined) light._base = light.intensity;
+      const f = 0.75 + 0.32 * Math.sin(tt * 5.7 + i * 2.03)
+                      + 0.12 * Math.sin(tt * 11.1 + i * 0.77);
+      light.intensity = light._base * f;
     });
 
-    // Balrog glow — slow heaving pulse (the Balrog stirs)
+    // Balrog glow — slow heaving pulse
     if (refs.balrogGlow) {
-      const pulse = 0.75 + 0.35 * Math.sin(tt * 1.3)
-                        + 0.15 * Math.sin(tt * 2.9);
-      refs.balrogGlow.intensity = 2.2 * pulse;
+      const p = 0.72 + 0.38 * Math.sin(tt * 1.1) + 0.18 * Math.sin(tt * 2.7);
+      refs.balrogGlow.intensity = 2.4 * p;
     }
-    if (refs.bridgeLight) {
-      refs.bridgeLight.intensity = 1.0 + 0.4 * Math.sin(tt * 1.7 + 0.5);
+    if (refs.balrogFill) {
+      refs.balrogFill.intensity = 1.1 + 0.4 * Math.sin(tt * 1.6 + 0.4);
     }
-    if (refs.bridgeFire) {
-      const bs = 0.90 + 0.18 * Math.sin(tt * 3.1) + 0.09 * Math.sin(tt * 6.7);
-      refs.bridgeFire.scale.setScalar(bs);
+    if (refs.balrogFire) {
+      const bs = 0.88 + 0.18 * Math.sin(tt * 3.0) + 0.09 * Math.sin(tt * 6.5);
+      refs.balrogFire.scale.setScalar(bs);
     }
 
-    // Gandalf staff tip — flickers slightly with cool blue-white light
+    // Gandalf staff — cool counterpoint flicker
     if (refs.staffTip) {
-      const sf = 0.85 + 0.2 * Math.sin(tt * 2.0) + 0.08 * Math.sin(tt * 5.5);
-      refs.staffTip.material.emissiveIntensity = 3.0 * sf;
+      refs.staffTip.material.emissiveIntensity = 3.0 * (0.82 + 0.22 * Math.sin(tt * 2.1) + 0.08 * Math.sin(tt * 5.3));
     }
     if (refs.staffLight) {
-      refs.staffLight.intensity = 0.7 + 0.25 * Math.sin(tt * 2.1);
+      refs.staffLight.intensity = 0.75 + 0.28 * Math.sin(tt * 2.0);
     }
   },
 
