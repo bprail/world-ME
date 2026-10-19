@@ -15,6 +15,7 @@ const LOCATION_MANIFEST = {
   barrowdowns: { src:'loc_barrowdowns.js', global:'BarrowDowns' },
   rivendell:   { src:'rivendell.js',       global:'Rivendell'   },
   eregion:     { src:'eregion.js',         global:'Eregion'     },
+  moriadoors:  { src:'moria-doors.js',     global:'MoriaDoors'  },
   // bree:     { src:'bree.js',            global:'Bree'        },
   // shire:    { src:'shire.js',           global:'Shire'       },
   // moria:    { src:'moria.js',           global:'Moria'       },
