@@ -479,49 +479,46 @@ const MoriaDoors = {
         }
       }
 
-      // ── Decorative inset arc at top of leaf ────────────────────────────────
-      // A quarter-circle arc drawn entirely WITHIN the leaf bounds.
-      // It curves from the outer-top corner down toward the seam-top corner,
-      // staying inside the leaf rectangle.
-      // Arc centre: at (outerX, leafHalfH) i.e. outer edge, top of leaf.
-      // Radius = leafW * 0.85 so the arc stays well within the leaf width.
-      // Angles: this traces a concave curve across the top of the leaf.
-      const arcCX  = seamX;           // centre at seam edge
-      const arcCY  = leafHalfH * 0.6; // centre below top, so arc bulges upward
-      const arcR   = leafW * 0.88;    // radius just under leaf width
-      const arcA0  = sign > 0 ? Math.PI * 0.55 : Math.PI * -0.05;
-      const arcA1  = sign > 0 ? Math.PI * 0.95 : Math.PI *  0.45;
-      const arcSegs = 6;
+      // ── Inset arc across top of leaf ───────────────────────────────────────
+      // Arc centre at (seamX, leafHalfH - arcR) so the arc peak sits exactly
+      // at the leaf's top edge and the arc descends within the leaf.
+      // Left leaf  (sign=+1): seamX=+3.2, sweeps angles PI/2 → PI
+      //   lx = 3.2 + cos(am)*r  →  3.2 at PI/2,  3.2-r at PI
+      //   ly = (5.1-r) + sin(am)*r  →  5.1 at PI/2,  5.1-r at PI
+      // Right leaf (sign=-1): seamX=-3.2, sweeps angles 0 → PI/2
+      //   lx = -3.2 + cos(am)*r  →  -3.2+r at 0,  -3.2 at PI/2
+      //   ly = (5.1-r) + sin(am)*r  →  5.1-r at 0,  5.1 at PI/2
+      const arcR   = leafW * 0.92;           // 2.94 — nearly full leaf width
+      const arcCX  = seamX;                  // seam edge in local x
+      const arcCY  = leafHalfH - arcR;       // 5.1 - 2.94 = 2.16
+      const arcA0  = sign > 0 ? Math.PI * 0.5 : 0;
+      const arcA1  = sign > 0 ? Math.PI       : Math.PI * 0.5;
+      const arcSegs = 7;
       for (let i = 0; i < arcSegs; i++) {
-        const a0 = arcA0 + (arcA1 - arcA0) * (i / arcSegs);
-        const a1 = arcA0 + (arcA1 - arcA0) * ((i + 1) / arcSegs);
+        const a0  = arcA0 + (arcA1 - arcA0) * (i / arcSegs);
+        const a1  = arcA0 + (arcA1 - arcA0) * ((i + 1) / arcSegs);
         const am  = (a0 + a1) / 2;
         const lx  = arcCX + Math.cos(am) * arcR;
         const ly  = arcCY + Math.sin(am) * arcR;
-        // Skip segments that stray outside leaf bounds
-        if (Math.abs(lx) > leafW + 0.1) continue;
-        if (ly < -leafHalfH || ly > leafHalfH + 0.1) continue;
         const segLen = arcR * Math.abs(a1 - a0) + 0.03;
-        const sm = new THREE.Mesh(
-          new THREE.BoxGeometry(segLen * 1.08, 0.20, 0.15), matInscription);
+        const sm  = new THREE.Mesh(
+          new THREE.BoxGeometry(segLen * 1.08, 0.22, 0.16), matInscription);
         sm.position.set(lx, ly, gz - 0.01);
         sm.rotation.z = am + Math.PI / 2;
         pivot.add(sm);
       }
 
-      // ── Two rune-stroke columns, upper half of leaf ─────────────────────────
-      // Both columns between tree top and arc bottom, on this leaf's half.
-      const col1X = centreX * 0.4;   // inner column, near seam side of centre
-      const col2X = centreX * 1.0;   // outer column, at leaf centre
-      for (const rx of [col1X, col2X]) {
-        for (let i = 0; i < 4; i++) {
-          const ry = treeBaseY + trunkH + 0.5 + i * 1.3;
-          if (ry > leafHalfH - 0.3) continue;  // don't overflow top
-          const sm = new THREE.Mesh(
-            new THREE.BoxGeometry(0.14, 0.80, 0.13), matInscription);
-          sm.position.set(rx, ry, gz - 0.01);
-          pivot.add(sm);
-        }
+      // ── Rune strokes: one column per leaf, between tree and arc ────────────
+      const runeX = centreX;   // single column at leaf centre
+      const runeYStart = treeBaseY + trunkH + 0.6;
+      const runeYEnd   = arcCY - 0.4;   // stop just below arc bottom
+      const runeCount  = Math.floor((runeYEnd - runeYStart) / 1.2);
+      for (let i = 0; i < runeCount; i++) {
+        const ry = runeYStart + i * 1.2;
+        const sm = new THREE.Mesh(
+          new THREE.BoxGeometry(0.14, 0.75, 0.13), matInscription);
+        sm.position.set(runeX, ry, gz - 0.01);
+        pivot.add(sm);
       }
 
       // ── Star of Durin — left leaf only, seam side, mid-height ──────────────
