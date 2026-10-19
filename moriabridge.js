@@ -323,20 +323,17 @@ const MoriaBridge = {
     const HALL_D    = HALL_ZS - HALL_ZN;  // 48
 
     // Floor slab
-    scene.add(Object.assign(
-      new THREE.Mesh(new THREE.BoxGeometry(HALL_W, 0.6, HALL_D), matStone),
-      { position: new THREE.Vector3(0, -0.3, (HALL_ZN+HALL_ZS)/2) }
-    ));
+    const hallFloor = new THREE.Mesh(new THREE.BoxGeometry(HALL_W, 0.6, HALL_D), matStone);
+    hallFloor.position.set(0, -0.3, (HALL_ZN+HALL_ZS)/2);
+    scene.add(hallFloor);
     // Ceiling slab
-    scene.add(Object.assign(
-      new THREE.Mesh(new THREE.BoxGeometry(HALL_W+4, 1.2, HALL_D+4), matStone),
-      { position: new THREE.Vector3(0, HALL_H, (HALL_ZN+HALL_ZS)/2) }
-    ));
+    const hallCeil = new THREE.Mesh(new THREE.BoxGeometry(HALL_W+4, 1.2, HALL_D+4), matStone);
+    hallCeil.position.set(0, HALL_H, (HALL_ZN+HALL_ZS)/2);
+    scene.add(hallCeil);
     // North back wall
-    scene.add(Object.assign(
-      new THREE.Mesh(new THREE.BoxGeometry(HALL_W+4, HALL_H+2, WALL_T), matStone),
-      { position: new THREE.Vector3(0, HALL_H/2, HALL_ZN) }
-    ));
+    const hallWallN = new THREE.Mesh(new THREE.BoxGeometry(HALL_W+4, HALL_H+2, WALL_T), matStone);
+    hallWallN.position.set(0, HALL_H/2, HALL_ZN);
+    scene.add(hallWallN);
     // East & west walls
     const hwallGeo = new THREE.BoxGeometry(WALL_T, HALL_H+2, HALL_D);
     const hwallL = new THREE.Mesh(hwallGeo, matStone);

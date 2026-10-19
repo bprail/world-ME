@@ -184,7 +184,7 @@ const MoriaDoors = {
 
   arrivals: {
     eregion:       { x: 11, z: 55, yaw: 0 },
-    moriabridge:   { x:  0, z: -38, yaw: Math.PI },  // deep inside antechamber
+    moriabridge:   { x:  0, z: -26, yaw: Math.PI },  // inside antechamber, well away from trigger
   },
 
   boundary: 95,
