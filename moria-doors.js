@@ -46,13 +46,16 @@ const MoriaDoors = {
     const fbm   = window.api_fbm;
     const noise = window.api_noise2d;
 
-    // ── large tarn basin (centre x=-14, z=16, radius 42) ─────────────────────
-    const px = x - (-14), pz = z - 16;
-    const poolDist = Math.sqrt(px * px + pz * pz);
-    const poolFloor = -3.4;
-    const poolEdge  = 42;
-    const poolBlend = Math.max(0, 1 - poolDist / poolEdge);
-    const poolDip   = poolBlend * poolBlend * poolBlend * poolFloor;
+    // ── large tarn basin (centre x=-18, z=14, ellipse rx=48 rz=52) ──────────
+    // Use an ellipse so the pool fills the whole west side of the scene.
+    // Basin terrain is CLAMPED to poolFloor inside the pool radius so the
+    // water plane Y can be set to a known value above it.
+    const pcx = x - (-18), pcz = z - 14;
+    const poolRX = 48, poolRZ = 52;
+    const poolEllipse = (pcx / poolRX) * (pcx / poolRX) + (pcz / poolRZ) * (pcz / poolRZ);
+    const poolFloor   = -2.0;   // terrain is clamped here inside the pool
+    const poolBlend   = Math.max(0, 1 - poolEllipse);
+    const poolDip     = poolBlend * poolBlend * poolFloor;
 
     // ── north cliff rise ──────────────────────────────────────────────────────
     const cliffBase = -14;
@@ -76,6 +79,11 @@ const MoriaDoors = {
 
     let h = rough * 0.5 + cliffRise + shoulderRise + poolDip + southSlope;
 
+    // Clamp deep inside the pool to a hard floor so the water plane is always above terrain
+    if (poolEllipse < 0.6) {
+      h = Math.min(h, poolFloor + 0.3);
+    }
+
     if (ledgeDx < 3.5 && z > -6 && z < 58) {
       h = rough * 0.5 + southSlope + 0.4;
     }
@@ -98,9 +106,9 @@ const MoriaDoors = {
     const wet    = [0.10, 0.13, 0.19];
     const lichen = [0.22, 0.26, 0.16];
 
-    const px = vx - (-14), pz = vz - 16;
+    const px = vx - (-18), pz = vz - 14;
     const poolDist = Math.sqrt(px * px + pz * pz);
-    const wetness  = Math.max(0, 1 - poolDist / 46);
+    const wetness  = Math.max(0, 1 - poolDist / 54);
 
     let r = lerp(slate[0], seam[0], n2 * 0.5);
     let g = lerp(slate[1], seam[1], n2 * 0.5);
@@ -110,7 +118,7 @@ const MoriaDoors = {
     g = lerp(g, wet[1], wetness * 0.7);
     b = lerp(b, wet[2], wetness * 0.7);
 
-    if (vy > 1.2 && n > 0.65 && poolDist > 28) {
+    if (vy > 1.2 && n > 0.65 && poolDist > 38) {
       const lf = (n - 0.65) / 0.35;
       r = lerp(r, lichen[0], lf * 0.5);
       g = lerp(g, lichen[1], lf * 0.5);
@@ -174,8 +182,8 @@ const MoriaDoors = {
   start: { x: 11, z: 55, yaw: 0 },
 
   arrivals: {
-    eregion:        { x: 11, z: 55, yaw: 0 },
-    'moria-bridge': { x:  0, z: -38, yaw: Math.PI },  // deep inside antechamber
+    eregion:       { x: 11, z: 55, yaw: 0 },
+    moriabridge:   { x:  0, z: -38, yaw: Math.PI },  // deep inside antechamber
   },
 
   boundary: 95,
@@ -189,7 +197,7 @@ const MoriaDoors = {
     {
       // Trigger well inside the antechamber — player must walk through the open doors
       trigger: { x: 0, z: -40, radius: 5 },
-      to: 'moria-bridge',
+      to: 'moriabridge',
     },
   ],
 
@@ -261,24 +269,26 @@ const MoriaDoors = {
     });
 
     // ── Large tarn ────────────────────────────────────────────────────────────
-    // Ellipse approximated as a scaled circle: long N-S, centre at x=-14, z=16
-    const waterGeo = new THREE.CircleGeometry(1, 52);
+    // PlaneGeometry covers the full west half of the scene.
+    // Y = -1.6: the basin terrain is clamped to max -1.7 inside the pool,
+    // so the water surface is always visible above the rock floor.
+    // The plane is intentionally oversized — the pool edges are masked by
+    // terrain rising above the water level at the ellipse boundary.
+    const waterGeo = new THREE.PlaneGeometry(110, 110, 1, 1);
     const water    = new THREE.Mesh(waterGeo, matWater);
     water.rotation.x = -Math.PI / 2;
-    water.scale.set(42, 1, 50);   // 42 wide (E-W), 50 deep (N-S)
-    water.position.set(-14, -3.1, 16);
+    water.position.set(-18, -1.6, 14);
     water.receiveShadow = true;
     scene.add(water);
 
-    // Mist plane above water
+    // Mist plane just above water surface
     const mistMat = new THREE.MeshStandardMaterial({
-      color: 0x060d18, transparent: true, opacity: 0.15,
+      color: 0x060d18, transparent: true, opacity: 0.14,
       roughness: 1, metalness: 0, depthWrite: false,
     });
-    const mist = new THREE.Mesh(new THREE.CircleGeometry(1, 44), mistMat);
+    const mist = new THREE.Mesh(new THREE.PlaneGeometry(116, 116, 1, 1), mistMat);
     mist.rotation.x = -Math.PI / 2;
-    mist.scale.set(44, 1, 52);
-    mist.position.set(-14, -2.6, 16);
+    mist.position.set(-18, -1.1, 14);
     scene.add(mist);
 
     // ── Cliff face — main mountain wall slab ──────────────────────────────────
@@ -504,14 +514,14 @@ const MoriaDoors = {
     innerGlow.position.set(doorX, doorY, doorZ - 6);
     scene.add(innerGlow);
 
-    // ── Pool-edge boulders ────────────────────────────────────────────────────
+    // ── Pool-edge boulders — ring around the ellipse perimeter ───────────────
     const boulders = [
-      [-38, -8, 1.4], [-34,  4, 1.1], [-44, 16, 1.6],
-      [-36, 28, 1.2], [-28, 38, 1.0], [-18, 44, 1.3],
-      [ -6, 48, 0.9], [  8, 44, 1.0], [ 18, 34, 0.8],
-      [ 22, 20, 1.1], [ 20,  6, 1.0], [ 16, -8, 0.9],
-      [  4,-16, 0.7], [-12,-14, 1.4], [-26,-6,  1.1],
-      [-40,  8, 1.0], [-20, 52, 0.8], [ 10, 50, 0.9],
+      [-52, -8, 1.4], [-48,  4, 1.2], [-58, 16, 1.6],
+      [-50, 28, 1.3], [-40, 46, 1.1], [-28, 56, 1.0],
+      [-14, 60, 0.9], [  2, 56, 1.0], [ 16, 46, 0.8],
+      [ 24, 30, 1.1], [ 24, 14, 1.0], [ 20, -4, 0.9],
+      [  8,-16, 0.8], [ -6,-18, 1.3], [-22,-14, 1.2],
+      [-38, -4, 1.1], [-56, 22, 1.0], [-20, 62, 0.9],
     ];
     for (const [bx, bz, br] of boulders) {
       const by = groundY(bx, bz) + br * 0.45;
@@ -559,8 +569,8 @@ const MoriaDoors = {
     const rippleRing2 = new THREE.Mesh(new THREE.TorusGeometry(7,  0.10, 6, 44), rippleMat2);
     rippleRing.rotation.x  = -Math.PI / 2;
     rippleRing2.rotation.x = -Math.PI / 2;
-    rippleRing.position.set(-20, -3.0, 10);
-    rippleRing2.position.set(-20, -2.97, 10);
+    rippleRing.position.set(-22, -1.55, 12);
+    rippleRing2.position.set(-22, -1.52, 12);
     scene.add(rippleRing);
     scene.add(rippleRing2);
 
