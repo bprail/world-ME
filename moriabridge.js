@@ -74,7 +74,7 @@ const MoriaBridge = {
 
   arrivals: {
     moriadoors: { x: -55, z: 0, yaw: Math.PI * 1.5 },   // deep in hall, face east
-    lothlorien: { x:  74, z: 24, yaw: Math.PI },   // corridor, face south toward light
+    lothlorien: { x:  74, z: 15, yaw: 0 },   // corridor, face north into the scene (light behind)
   },
 
   boundary: 120,
@@ -99,17 +99,19 @@ const MoriaBridge = {
     { x:50.5, z:0, yaw:Math.PI*1.5, length:5, width:1.4, yStart:8.0, yEnd:6.5 },
     // Arch seg 4 (x=53→60, descends 6.5→4)
     { x:56.5, z:0, yaw:Math.PI*1.5, length:7, width:1.4, yStart:6.5, yEnd:4.0 },
-    // East ramp (x=60→66, descends 4→0)
-    { x:63,   z:0, yaw:Math.PI*1.5, length:6, width:2.2, yStart:4.0, yEnd:0.0 },
+    // East ramp (x=60→68, descends 4→0)
+    { x:64,   z:0, yaw:Math.PI*1.5, length:8, width:2.2, yStart:4.0, yEnd:0.0 },
   ],
 
-  // Only barriers the engine needs: the chasm void on either side of the bridge.
-  // Inner edge sits just outside the bridge width (half-width 0.7 → inner edge at z=±1.8).
+  // Barriers: chasm flanks either side of bridge.
+  // Bridge walkable half-width = 1.1 (width 2.2) → edge at z=±1.1
+  // Barrier inner edge must be at z=±1.1 to leave no gap.
+  // centre z = ±(1.1 + 7) = ±8.1, width 14 → inner edge at ±1.1 ✓
   barriers: [
-    // Chasm north flank
-    { x:44, z:-9, w:48, d:14, yaw:0 },
-    // Chasm south flank
-    { x:44, z: 9, w:48, d:14, yaw:0 },
+    // Chasm north flank — covers x=28→68, inner edge at z=-1.1
+    { x:48, z:-8.1, w:40, d:14, yaw:0 },
+    // Chasm south flank — covers x=28→68, inner edge at z=+1.1
+    { x:48, z: 8.1, w:40, d:14, yaw:0 },
 
     // North blocking wall at east bridge exit (forces player south)
   ],
@@ -211,7 +213,7 @@ const MoriaBridge = {
     addSlabX(44, 48, 8.0, 8.0, 1.4);
     addSlabX(48, 53, 8.0, 6.5, 1.4);
     addSlabX(53, 60, 6.5, 4.0, 1.4);
-    addSlabX(60, 66, 4.0, 0.0, 2.2);
+    addSlabX(60, 68, 4.0, 0.0, 2.2);
 
     // Side kerbs
     const addKerbX = (x0,x1,y0,y1,side) => {
