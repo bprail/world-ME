@@ -1,12 +1,12 @@
 // moriabridge.js — Durin's Bridge, Moria
 // Sequence: moriadoors (north, -Z) → cross south (+Z) → lothlorien
 //
-// Layout (-Z to +Z):
-//   moriadoors arrival → NORTH HALL (spawn) → hallway → doorway arch at z≈-50
-//                                                        bridge ramp at z≈-33
-//                                                        BRIDGE CROWN (arched) z=-20 to +20
-//                                                        bridge ramp at z≈+33
-//                        narrow east-ledge → [transition +Z lothlorien]
+// Layout:
+//   [moriadoors transition z=-100] ← NORTH HALL (spawn, z=-52 to -100) ← splayed arch at z=-52
+//   hallway z=-52 to -40 → open chasm space → bridge ramp z=-33
+//   BRIDGE CROWN (arched) z=-20 to +20
+//   bridge ramp z=+20 to +33 → flat east alcove (z=38, runs +X to x=28)
+//   [lothlorien transition x=28, z=38]
 
 const MoriaBridge = {
 
@@ -26,21 +26,16 @@ const MoriaBridge = {
     moonPosition:     { x: 0, y: 60, z: 0 },
     showStars:        false,
     extraLights: [
-      // Balrog glow from deep north (behind the hall)
-      { color: 0xcc3300, intensity: 0.55, x: 0,   y: 20,  z: -120 },
-      // Chasm ember up-light
-      { color: 0x551100, intensity: 0.28, x: 0,   y: -30, z: 0    },
-      // Hall fill — north side where the player spawns
-      { color: 0x6a3010, intensity: 0.20, x: 0,   y: 15,  z: -65  },
-      // South-side ambient — faint glow near the ledge exit
-      { color: 0x441a06, intensity: 0.12, x: 8,   y: 8,   z:  55  },
+      { color: 0xcc3300, intensity: 0.55, x: 0,  y: 20, z: -130 },  // balrog deep north
+      { color: 0x551100, intensity: 0.28, x: 0,  y: -30, z: 0   },  // chasm ember up-light
+      { color: 0x6a3010, intensity: 0.20, x: 0,  y: 15,  z: -75 },  // hall fill
+      { color: 0x441a06, intensity: 0.14, x: 14, y: 6,   z: 40  },  // south alcove fill
     ],
   },
 
-  // ─── Terrain — near-flat; all visual structure comes from geometry ───────────
+  // ─── Terrain — near-flat; geometry provides all structure ───────────────────
   hillHeight(x, z) {
-    const n = window.api_noise2d(x * 0.06, z * 0.06);
-    return n * 0.6;   // gentle surface texture only, no dramatic slopes
+    return window.api_noise2d(x * 0.06, z * 0.06) * 0.5;
   },
 
   vertexColor(vx, vy, vz, noise2d, lerp) {
@@ -50,124 +45,111 @@ const MoriaBridge = {
 
   onPath: (() => 0),
 
-  // ─── Lore (book order: moriadoors north → lothlorien south) ─────────────────
+  // ─── Lore (book order: north hall → bridge → south alcove) ──────────────────
   lorePoints: [
     {
-      // Inside the north hall as the player approaches the bridge
-      pos: { x: 0, z: -68 }, radius: 8,
+      pos: { x: 0, z: -82 }, radius: 8,
       text: '"Doom, doom, doom the drums in the deep... They are coming."',
       cite: '— J.R.R. Tolkien, The Fellowship of the Ring, Book II',
     },
     {
-      // North ramp / bridge mouth — Gandalf turns to face the Balrog
-      pos: { x: 0, z: -30 }, radius: 6,
+      pos: { x: 0, z: -36 }, radius: 6,
       text: '"You cannot pass! I am a servant of the Secret Fire, wielder of the flame of Anor. You cannot pass. The dark fire will not avail you, flame of Udûn."',
       cite: '— Gandalf the Grey, at the Bridge of Khazad-dûm',
     },
     {
-      // Crown of the bridge
       pos: { x: 0, z: 0 }, radius: 5,
       text: '"The Bridge of Khazad-dûm was slender and had no rail or curb. It spanned the chasm with one curving spring of fifty feet."',
       cite: '— J.R.R. Tolkien, The Fellowship of the Ring',
     },
     {
-      // South ramp — Gandalf falls behind the fleeing Fellowship
-      pos: { x: 0, z: 30 }, radius: 6,
+      pos: { x: 0, z: 36 }, radius: 6,
       text: '"Fly, you fools!" he cried, and was gone. The bridge cracked and fell. In the fire and the smoke Gandalf fell, and the shadow went down into darkness.',
       cite: '— J.R.R. Tolkien, The Fellowship of the Ring',
     },
     {
-      // On the narrow south ledge, walking toward Lothlórien
-      pos: { x: 12, z: 45 }, radius: 6,
+      pos: { x: 16, z: 38 }, radius: 6,
       text: '"They stood at last on the eastern side of the Misty Mountains, and Aragorn said nothing, for he wept."',
       cite: '— J.R.R. Tolkien, The Fellowship of the Ring',
     },
   ],
 
   // ─── Player start / arrivals ─────────────────────────────────────────────────
-  // North hall interior, facing south (yaw π = facing +Z)
-  start: { x: 0, z: -68, yaw: Math.PI },
+  start: { x: 0, z: -88, yaw: Math.PI },
 
   arrivals: {
-    // From moriadoors: inside the north hall, facing south toward the bridge
-    moriadoors: { x: 0, z: -72, yaw: Math.PI },
-    // From lothlorien: at the far (east) end of the narrow south ledge, facing west
-    // yaw π*1.5 = facing -X (west), so player walks back toward the bridge
-    lothlorien: { x: 22, z: 45, yaw: Math.PI * 1.5 },
+    moriadoors: { x: 0,  z: -92, yaw: Math.PI       },  // deep in hall, face south
+    lothlorien: { x: 26, z:  38, yaw: Math.PI * 1.5 },  // east end of alcove, face west
   },
 
-  // ─── Boundary ───────────────────────────────────────────────────────────────
-  boundary: 110,
+  // ─── Boundary ────────────────────────────────────────────────────────────────
+  boundary: 120,
 
   // ─── Transitions ─────────────────────────────────────────────────────────────
-  // North: back of the north hall (moriadoors side)
-  // South: east end of the narrow south ledge (lothlorien side)
   transitions: [
-    { trigger: { x: 0,  z: -82, radius: 7 }, to: 'moriadoors' },
-    { trigger: { x: 24, z:  45, radius: 5 }, to: 'lothlorien' },
+    { trigger: { x: 0,  z: -98, radius: 7 }, to: 'moriadoors' },
+    { trigger: { x: 28, z:  38, radius: 5 }, to: 'lothlorien' },
   ],
 
   // ─── Walkables ───────────────────────────────────────────────────────────────
+  // All yaw:0 segments run N-S along Z. The east alcove uses yaw:π*0.5 (E-W).
+  // Walkable z-centres and lengths are derived directly from the addSlab endpoints.
   walkables: [
-    // ── NORTH HALL FLOOR (moriadoors spawn side) ──────────────────────────────
-    { x: 0, z: -68, yaw: 0, length: 28, width: 30, yStart: 0.0, yEnd: 0.0 },
+    // North hall floor (z=-52 to -100, centre=-76, length=48)
+    { x: 0, z: -76, yaw: 0, length: 48, width: 32, yStart: 0.0, yEnd: 0.0 },
 
-    // ── HALLWAY south of hall arch ────────────────────────────────────────────
-    { x: 0, z: -52, yaw: 0, length: 10, width: 6,  yStart: 0.0, yEnd: 0.0 },
+    // Hallway (z=-52 to -40, centre=-46, length=12)
+    { x: 0, z: -46, yaw: 0, length: 12, width: 5.5, yStart: 0.0, yEnd: 0.0 },
 
-    // ── BRIDGE NORTH RAMP ─────────────────────────────────────────────────────
-    { x: 0, z: -33, yaw: 0, length: 10, width: 2.2, yStart: 0.0, yEnd: 4.5 },
+    // Flat approach from hallway exit to bridge ramp base (z=-40 to -33)
+    { x: 0, z: -36, yaw: 0, length:  8, width: 5.5, yStart: 0.0, yEnd: 0.0 },
 
-    // ── BRIDGE ARCH — 5 segments forming a gentle curve ───────────────────────
+    // Bridge north ramp (z=-33 to -20, centre=-26.5, length=13)
+    { x: 0, z: -26.5, yaw: 0, length: 13, width: 2.2, yStart: 0.0, yEnd: 4.5 },
+
+    // Bridge arch — 5 segments (z=-20→+20 in 10-unit steps)
     { x: 0, z: -15, yaw: 0, length: 10, width: 1.4, yStart: 4.5, yEnd: 6.5 },
     { x: 0, z:  -5, yaw: 0, length: 10, width: 1.4, yStart: 6.5, yEnd: 8.0 },
-    { x: 0, z:   0, yaw: 0, length: 10, width: 1.4, yStart: 8.0, yEnd: 8.0 },
     { x: 0, z:   5, yaw: 0, length: 10, width: 1.4, yStart: 8.0, yEnd: 6.5 },
     { x: 0, z:  15, yaw: 0, length: 10, width: 1.4, yStart: 6.5, yEnd: 4.5 },
 
-    // ── BRIDGE SOUTH RAMP ─────────────────────────────────────────────────────
-    { x: 0, z: 33, yaw: 0, length: 10, width: 2.2, yStart: 4.5, yEnd: 0.0 },
+    // Bridge south ramp (z=+20 to +33, centre=+26.5, length=13)
+    { x: 0, z: 26.5, yaw: 0, length: 13, width: 2.2, yStart: 4.5, yEnd: 0.0 },
 
-    // ── SOUTH LANDING — small flat area at bottom of ramp ────────────────────
-    { x: 0, z: 42, yaw: 0, length:  8, width: 5.0, yStart: 0.0, yEnd: 0.0 },
-
-    // ── NARROW EAST LEDGE (lothlorien side) ──────────────────────────────────
-    // Runs east (+X) from x=0 to x=24, centred on z=45, width=5 (north-south)
-    { x: 12, z: 45, yaw: Math.PI * 0.5, length: 24, width: 5, yStart: 0.0, yEnd: 0.0 },
+    // South alcove — flat floor running east from x=0 to x=28, centred on z=38
+    // Represented as two walkables: the N-S approach pad then the E-W run
+    { x: 0,  z: 38, yaw: 0,            length:  8, width: 8,  yStart: 0.0, yEnd: 0.0 },
+    { x: 16, z: 38, yaw: Math.PI * 0.5, length: 24, width: 8, yStart: 0.0, yEnd: 0.0 },
   ],
 
   // ─── Barriers ────────────────────────────────────────────────────────────────
   barriers: [
-    // ── Chasm flanks — tight against 1.4-wide bridge ─────────────────────────
-    { x: -7,  z:  0,  w: 11, d: 70, yaw: 0 },
-    { x:  7,  z:  0,  w: 11, d: 70, yaw: 0 },
+    // Chasm flanks — only over the chasm band (z=-28 to +28)
+    // Inner edge at x=±1.6 (bridge half-width 0.7 + small margin)
+    { x: -8, z: 0, w: 13, d: 56, yaw: 0 },
+    { x:  8, z: 0, w: 13, d: 56, yaw: 0 },
 
-    // ── North hall side walls ─────────────────────────────────────────────────
-    { x: -17, z: -68, w:  6, d: 34, yaw: 0 },
-    { x:  17, z: -68, w:  6, d: 34, yaw: 0 },
-    // Hall north back wall (also holds moriadoors transition)
-    { x:   0, z: -87, w: 44, d:  6, yaw: 0 },
+    // North hall side walls
+    { x: -18, z: -76, w: 4, d: 52, yaw: 0 },
+    { x:  18, z: -76, w: 4, d: 52, yaw: 0 },
+    // Hall north back wall
+    { x:   0, z: -103, w: 44, d: 6, yaw: 0 },
 
-    // ── Hallway walls (z≈-52 corridor between hall and bridge) ───────────────
-    { x: -5,  z: -52, w:  4, d: 12, yaw: 0 },
-    { x:  5,  z: -52, w:  4, d: 12, yaw: 0 },
+    // Hallway walls
+    { x: -4, z: -46, w: 3, d: 14, yaw: 0 },
+    { x:  4, z: -46, w: 3, d: 14, yaw: 0 },
 
-    // ── South landing walls (either side of ramp base) ────────────────────────
-    { x: -5,  z: 42,  w:  4, d: 10, yaw: 0 },
-    { x:  5,  z: 42,  w:  4, d: 10, yaw: 0 },
-
-    // ── Narrow south ledge edges (centred on z=45) ────────────────────────────
-    { x: 12, z: 51,  w: 30, d:  4, yaw: 0 },   // south edge of ledge
-    { x: 12, z: 39,  w: 30, d:  4, yaw: 0 },   // north edge of ledge
-    // West end cap (where ramp meets ledge)
-    { x: -4, z: 45,  w:  6, d: 14, yaw: 0 },
+    // South alcove — back wall (north side at z=34) and east end wall
+    { x: 14, z: 34, w: 36, d: 3, yaw: 0 },   // north wall of alcove
+    { x: 14, z: 42, w: 36, d: 3, yaw: 0 },   // south wall of alcove
+    { x: 30, z: 38, w:  3, d: 12, yaw: 0 },  // east end wall (beyond transition)
   ],
 
-  // ─── Scene ───────────────────────────────────────────────────────────────────
+  // ─── buildScene ──────────────────────────────────────────────────────────────
   buildScene(THREE, scene, groundY, MAT) {
 
     const refs = {
-      torches:     [],   // [{ flames:[], embers, eGeo, ePOS, eVEL, eLIF, light }]
+      torches:     [],
       chasmLights: [],
       balrogGlow:  null,
       balrogFill:  null,
@@ -180,7 +162,7 @@ const MoriaBridge = {
     const rnd = (a, b) => a + Math.random() * (b - a);
 
     // ── Materials ──────────────────────────────────────────────────────────────
-    const matStone = new THREE.MeshStandardMaterial({ color: 0x1c1614, roughness: 0.93, metalness: 0.04 });
+    const matStone  = new THREE.MeshStandardMaterial({ color: 0x1c1614, roughness: 0.93, metalness: 0.04 });
     const matBridge = new THREE.MeshStandardMaterial({ color: 0x18120e, roughness: 0.95, metalness: 0.03 });
     const matVoid   = new THREE.MeshStandardMaterial({ color: 0x020101, roughness: 1.0,  metalness: 0.0  });
     const matCrack  = new THREE.MeshStandardMaterial({
@@ -195,7 +177,7 @@ const MoriaBridge = {
       roughness: 0.5, transparent: true, opacity: 0.70,
     });
 
-    // ── Torch factory — sprite flames + ember particles, scaled for wall torches ─
+    // ── Torch factory ──────────────────────────────────────────────────────────
     function makeFlameTexture(c1, c2) {
       const cv = document.createElement('canvas'); cv.width = cv.height = 64;
       const ctx = cv.getContext('2d');
@@ -206,18 +188,14 @@ const MoriaBridge = {
     }
 
     function makeTorch(wx, wy, wz) {
-      // Pole
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.065, 1.6, 7), matStone);
       pole.position.set(wx, wy + 0.8, wz);
       scene.add(pole);
-      // Bowl
       const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.09, 0.22, 8), matStone);
       bowl.position.set(wx, wy + 1.71, wz);
       scene.add(bowl);
 
       const fireBase = wy + 1.82;
-
-      // Flame sprites (smaller than campfire — scale ~0.4)
       const flames = [];
       [
         { tex: makeFlameTexture('rgba(255,240,180,0.95)', 'rgba(255,100,10,0.6)'),  sz: 0.38, speed: 1.2, phase: 0   },
@@ -236,7 +214,6 @@ const MoriaBridge = {
         flames.push(sp);
       });
 
-      // Embers — 30 particles (compact)
       const EC = 30;
       const eGeo = new THREE.BufferGeometry();
       const ePOS = new Float32Array(EC * 3);
@@ -265,17 +242,15 @@ const MoriaBridge = {
       const pts = new THREE.Points(eGeo, eMat);
       scene.add(pts);
 
-      // Point light
       const light = new THREE.PointLight(0xff6622, 0.9, 10);
       light.position.set(wx, fireBase + 0.3, wz);
       scene.add(light);
-      refs.chasmLights.push(light);
 
-      refs.torches.push({ flames, pts, eGeo, ePOS, eVEL, eLIF, EC, resetE, fireBase, wx, wz, light });
+      refs.torches.push({ flames, pts, eGeo, ePOS, eVEL, eLIF, EC, resetE, light });
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // BRIDGE GEOMETRY — addSlab helper: single rotated box, no gaps
+    // BRIDGE — sloped slabs via addSlab helper
     // ═══════════════════════════════════════════════════════════════════════════
     const BD = 0.36;
     const addSlab = (zStart, zEnd, y0, y1, width) => {
@@ -288,23 +263,19 @@ const MoriaBridge = {
       scene.add(mesh);
     };
 
-    // North ramp
-    addSlab(-33, -20, 0.0, 4.5, 2.2);
-    // Arch — 5 segments
-    addSlab(-20, -10, 4.5, 6.5, 1.4);
-    addSlab(-10,   0, 6.5, 8.0, 1.4);
-    addSlab(  0,   0, 8.0, 8.0, 1.4);   // crown (zero-length guard, visual only)
-    addSlab(  0,  10, 8.0, 6.5, 1.4);
-    addSlab( 10,  20, 6.5, 4.5, 1.4);
-    // South ramp
-    addSlab( 20,  33, 4.5, 0.0, 2.2);
+    addSlab(-33, -20, 0.0, 4.5, 2.2);   // north ramp
+    addSlab(-20, -10, 4.5, 6.5, 1.4);   // arch seg 1
+    addSlab(-10,   0, 6.5, 8.0, 1.4);   // arch seg 2
+    addSlab(  0,  10, 8.0, 6.5, 1.4);   // arch seg 3 (crown → south)
+    addSlab( 10,  20, 6.5, 4.5, 1.4);   // arch seg 4
+    addSlab( 20,  33, 4.5, 0.0, 2.2);   // south ramp
 
-    // Thin side kerbs on the narrow span only (no rails — just stone lip)
+    // Thin side kerbs along the narrow span
     const addKerb = (zStart, zEnd, y0, y1, side) => {
       const dz = zEnd - zStart, dy = y1 - y0;
       const len = Math.sqrt(dz*dz + dy*dy);
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.28, len), matBridge);
-      mesh.position.set(side * (1.4/2 + 0.09), (y0+y1)/2 + 0.14, (zStart+zEnd)/2);
+      mesh.position.set(side * (0.7 + 0.09), (y0+y1)/2 + 0.14, (zStart+zEnd)/2);
       mesh.rotation.x = -Math.atan2(dy, dz);
       scene.add(mesh);
     };
@@ -316,236 +287,230 @@ const MoriaBridge = {
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CHASM VOID — tall boxes, top at y=-8, deep enough that fog hides the bottom
+    // CHASM VOID — walls flush with ground (top at y=0), deep enough for fog fade
+    // Width covers from x=±2 outward; d=56 matches chasm band z=±28
     // ═══════════════════════════════════════════════════════════════════════════
-    const CHASM_H  = 120;
-    const CHASM_TOP = -8;
+    const CHASM_H   = 110;
+    const CHASM_TOP = 0;    // top of chasm walls at ground level, no terrain gap
     const chasmWall = (cx, cz, w, d) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, CHASM_H, d), matVoid);
-      m.position.set(cx, CHASM_TOP - CHASM_H/2, cz);
+      m.position.set(cx, CHASM_TOP - CHASM_H / 2, cz);
       scene.add(m);
     };
-    chasmWall(-12, 0, 20, 64);   // west flank
-    chasmWall( 12, 0, 20, 64);   // east flank
-    // Floor — very deep, fog handles fade
-    const floor = new THREE.Mesh(new THREE.BoxGeometry(50, 2, 68), matVoid);
-    floor.position.set(0, CHASM_TOP - CHASM_H, 0);
-    scene.add(floor);
+    chasmWall(-9, 0, 16, 68);   // west flank
+    chasmWall( 9, 0, 16, 68);   // east flank
+
+    // Chasm floor — very deep
+    const chasmFloor = new THREE.Mesh(new THREE.BoxGeometry(36, 2, 72), matVoid);
+    chasmFloor.position.set(0, CHASM_TOP - CHASM_H - 1, 0);
+    scene.add(chasmFloor);
+
     // Glowing crack
-    const crack = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, 58), matCrack);
-    crack.position.set(0, CHASM_TOP - CHASM_H + 1, 0);
+    const crack = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, 60), matCrack);
+    crack.position.set(0, CHASM_TOP - CHASM_H, 0);
     scene.add(crack);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // NORTH HALL — high-ceilinged entrance chamber (moriadoors side)
-    // Hall floor at y=0, ceiling at y=30, z range -54 to -82, x range -20 to +20
+    // NORTH HALL — longer entrance chamber (z=-52 to z=-100), ceiling y=30
     // ═══════════════════════════════════════════════════════════════════════════
-    const HALL_Y_FLOOR = 0;
-    const HALL_Y_CEIL  = 30;
-    const HALL_ZN      = -82;   // north back wall of hall
-    const HALL_ZS      = -50;   // south face (doorway side)
-    const HALL_XW      = -20;
-    const HALL_XE      =  20;
-    const HALL_H       = HALL_Y_CEIL - HALL_Y_FLOOR;
-    const WALL_T       = 1.4;
+    const HALL_ZN   = -100;
+    const HALL_ZS   = -52;   // south face = doorway z
+    const HALL_XW   = -18;
+    const HALL_XE   =  18;
+    const HALL_H    = 30;
+    const WALL_T    = 1.4;
+    const HALL_W    = HALL_XE - HALL_XW;  // 36
+    const HALL_D    = HALL_ZS - HALL_ZN;  // 48
 
-    // Floor
-    const hallFloor = new THREE.Mesh(
-      new THREE.BoxGeometry(HALL_XE-HALL_XW, 0.6, HALL_ZS-HALL_ZN), matStone
-    );
-    hallFloor.position.set(0, HALL_Y_FLOOR - 0.3, (HALL_ZN+HALL_ZS)/2);
-    scene.add(hallFloor);
-
-    // Ceiling
-    const hallCeil = new THREE.Mesh(
-      new THREE.BoxGeometry(HALL_XE-HALL_XW + 4, 1.0, HALL_ZS-HALL_ZN + 4), matStone
-    );
-    hallCeil.position.set(0, HALL_Y_CEIL, (HALL_ZN+HALL_ZS)/2);
-    scene.add(hallCeil);
-
+    // Floor slab
+    scene.add(Object.assign(
+      new THREE.Mesh(new THREE.BoxGeometry(HALL_W, 0.6, HALL_D), matStone),
+      { position: new THREE.Vector3(0, -0.3, (HALL_ZN+HALL_ZS)/2) }
+    ));
+    // Ceiling slab
+    scene.add(Object.assign(
+      new THREE.Mesh(new THREE.BoxGeometry(HALL_W+4, 1.2, HALL_D+4), matStone),
+      { position: new THREE.Vector3(0, HALL_H, (HALL_ZN+HALL_ZS)/2) }
+    ));
     // North back wall
-    const hallWallN = new THREE.Mesh(new THREE.BoxGeometry(HALL_XE-HALL_XW+4, HALL_H+2, WALL_T), matStone);
-    hallWallN.position.set(0, HALL_H/2, HALL_ZN);
-    scene.add(hallWallN);
-
+    scene.add(Object.assign(
+      new THREE.Mesh(new THREE.BoxGeometry(HALL_W+4, HALL_H+2, WALL_T), matStone),
+      { position: new THREE.Vector3(0, HALL_H/2, HALL_ZN) }
+    ));
     // East & west walls
-    const wallLen = HALL_ZS - HALL_ZN;
-    const hallWallW = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, HALL_H+2, wallLen), matStone);
-    hallWallW.position.set(HALL_XW, HALL_H/2, (HALL_ZN+HALL_ZS)/2);
-    scene.add(hallWallW);
-    const hallWallE = hallWallW.clone();
-    hallWallE.position.x = HALL_XE;
-    scene.add(hallWallE);
+    const hwallGeo = new THREE.BoxGeometry(WALL_T, HALL_H+2, HALL_D);
+    const hwallL = new THREE.Mesh(hwallGeo, matStone);
+    hwallL.position.set(HALL_XW, HALL_H/2, (HALL_ZN+HALL_ZS)/2);
+    scene.add(hwallL);
+    const hwallR = hwallL.clone(); hwallR.position.x = HALL_XE; scene.add(hwallR);
 
-    // ── Hall columns — pairs running north-south inside hall ───────────────────
+    // Hall columns — 4 pairs
     const COL_H = HALL_H + 2;
-    const colPairs = [
-      { x: -10, z: -58 }, { x: 10, z: -58 },
-      { x: -10, z: -68 }, { x: 10, z: -68 },
-      { x: -10, z: -78 }, { x: 10, z: -78 },
-    ];
-    colPairs.forEach(({ x, z }) => {
+    [[-12,-64],[12,-64], [-12,-76],[12,-76], [-12,-88],[12,-88], [-12,-97],[12,-97]].forEach(([cx,cz]) => {
       const col = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.1, COL_H, 9), matStone);
-      col.position.set(x, COL_H/2, z);
+      col.position.set(cx, COL_H/2, cz);
       scene.add(col);
-      // Capital block
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.6, 2.4), matStone);
-      cap.position.set(x, COL_H - 0.3, z);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.7, 2.6), matStone);
+      cap.position.set(cx, COL_H - 0.35, cz);
       scene.add(cap);
     });
 
-    // ── South face of hall — trapezoidal doorway arch (/-\) ───────────────────
-    // The doorway is 4 units wide, 7 units tall at the centre.
-    // Built from: left jamb, right jamb, two sloped lintels, centre keystone.
-    const DOOR_W  = 4.2;   // door clear width
-    const DOOR_H  = 7.0;   // door height at centre
-    const ARCH_Y  = HALL_Y_FLOOR;
-    const DOOR_Z  = HALL_ZS;   // z = -50
+    // Hall torches — on the side walls between columns
+    [[-16,-64],[16,-64], [-16,-76],[16,-76], [-16,-88],[16,-88]].forEach(([tx,tz]) => makeTorch(tx, 0, tz));
 
-    // Solid wall panel south face (with hole — approximated by building around the opening)
-    // Left panel
-    const wallPanelW = (HALL_XE - HALL_XW - DOOR_W) / 2;   // ~7.9
-    const wallPanelL = new THREE.Mesh(new THREE.BoxGeometry(wallPanelW, HALL_H, WALL_T), matStone);
-    wallPanelL.position.set(HALL_XW + wallPanelW/2, HALL_H/2, DOOR_Z);
-    scene.add(wallPanelL);
-    const wallPanelR = wallPanelL.clone();
-    wallPanelR.position.x = HALL_XE - wallPanelW/2;
-    scene.add(wallPanelR);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DOORWAY ARCH — splayed/sloped walls at hall south face (z = HALL_ZS = -52)
+    // The opening is narrow at the outside face and widens toward the hall.
+    // Achieved by two wedge-shaped wall sections rotated in Y.
+    // ═══════════════════════════════════════════════════════════════════════════
+    const DOOR_W_OUT = 4.2;   // opening width at outside face
+    const DOOR_W_IN  = 7.0;   // opening width at hall side (splayed reveal)
+    const DOOR_H     = 8.0;   // door height at centre keystone
+    const DOOR_Z     = HALL_ZS;
+    const SPLAY_D    = 3.0;   // depth of the splayed passage
+
+    // Splay angle: half-width difference over depth
+    const splayAngle = Math.atan2((DOOR_W_IN - DOOR_W_OUT) / 2, SPLAY_D);
+
+    // Left splayed jamb — a box rotated so its face angles outward
+    const jambW = Math.sqrt(SPLAY_D*SPLAY_D + ((DOOR_W_IN-DOOR_W_OUT)/2)**2) + 1.0;
+    const jambH_geom = DOOR_H - 1.8;   // height of the straight part below the lintel slope
+
+    const makeJamb = (side) => {
+      // Vertical jamb fill
+      const j = new THREE.Mesh(new THREE.BoxGeometry(jambW, jambH_geom, WALL_T + 0.1), matStone);
+      j.rotation.y = side * splayAngle;
+      const ox = side * (DOOR_W_OUT/2 + jambW/2 * Math.cos(splayAngle) - 0.3);
+      j.position.set(ox, jambH_geom/2, DOOR_Z - SPLAY_D/2);
+      scene.add(j);
+    };
+    makeJamb(-1); makeJamb(1);
+
+    // Wall panels flanking the door (straight vertical, outside the splay)
+    const panelW = (HALL_W - DOOR_W_OUT) / 2 - 0.5;
+    [-1, 1].forEach(side => {
+      // Outer solid wall panel
+      const p = new THREE.Mesh(new THREE.BoxGeometry(panelW, HALL_H, WALL_T), matStone);
+      p.position.set(side * (DOOR_W_OUT/2 + panelW/2), HALL_H/2, DOOR_Z);
+      scene.add(p);
+      // Transom fill above door on each side already handled by the transom block below
+    });
     // Transom above door
     const transomH = HALL_H - DOOR_H;
-    const transom = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W, transomH, WALL_T), matStone);
+    const transom = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W_OUT, transomH, WALL_T), matStone);
     transom.position.set(0, DOOR_H + transomH/2, DOOR_Z);
     scene.add(transom);
 
-    // Left jamb (vertical)
-    const jambH = DOOR_H - 1.5;   // leaves room for the sloped lintel
-    const jambL = new THREE.Mesh(new THREE.BoxGeometry(0.45, jambH, WALL_T+0.2), matStone);
-    jambL.position.set(-DOOR_W/2, ARCH_Y + jambH/2, DOOR_Z);
-    scene.add(jambL);
-    const jambR = jambL.clone();
-    jambR.position.x = DOOR_W/2;
-    scene.add(jambR);
-
-    // Sloped lintels (/-\): two angled blocks meeting at centre keystone
-    // Left lintel: rises from left jamb top-right to centre
-    {
-      const lx0 = -DOOR_W/2, ly0 = ARCH_Y + jambH;
-      const lx1 =  0,        ly1 = ARCH_Y + DOOR_H;
-      const dx = lx1-lx0, dy = ly1-ly0;
+    // Sloped lintels (/-\): left rises, right descends, meeting at keystone
+    const jambTopY = jambH_geom;
+    const keystoneY = DOOR_H;
+    [[- DOOR_W_OUT/2, 0], [0, DOOR_W_OUT/2]].forEach(([x0, x1], idx) => {
+      const y0 = idx === 0 ? jambTopY : keystoneY;
+      const y1 = idx === 0 ? keystoneY : jambTopY;
+      const dx = x1-x0, dy = y1-y0;
       const len = Math.sqrt(dx*dx + dy*dy);
-      const ang = Math.atan2(dy, dx);
-      const lintelL = new THREE.Mesh(new THREE.BoxGeometry(len, 0.45, WALL_T+0.2), matStone);
-      lintelL.position.set((lx0+lx1)/2, (ly0+ly1)/2, DOOR_Z);
-      lintelL.rotation.z = ang;
-      scene.add(lintelL);
-    }
-    // Right lintel: descends from centre to right jamb
-    {
-      const lx0 =  0,        ly0 = ARCH_Y + DOOR_H;
-      const lx1 =  DOOR_W/2, ly1 = ARCH_Y + jambH;
-      const dx = lx1-lx0, dy = ly1-ly0;
-      const len = Math.sqrt(dx*dx + dy*dy);
-      const ang = Math.atan2(dy, dx);
-      const lintelR = new THREE.Mesh(new THREE.BoxGeometry(len, 0.45, WALL_T+0.2), matStone);
-      lintelR.position.set((lx0+lx1)/2, (ly0+ly1)/2, DOOR_Z);
-      lintelR.rotation.z = ang;
-      scene.add(lintelR);
-    }
-    // Keystone at peak
-    const keystone = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.9, WALL_T+0.4), matStone);
-    keystone.position.set(0, ARCH_Y + DOOR_H + 0.1, DOOR_Z);
-    scene.add(keystone);
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(len, 0.5, WALL_T+0.2), matStone);
+      mesh.position.set((x0+x1)/2, (y0+y1)/2, DOOR_Z);
+      mesh.rotation.z = Math.atan2(dy, dx);
+      scene.add(mesh);
+    });
+    // Keystone
+    const ks = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.0, WALL_T+0.4), matStone);
+    ks.position.set(0, keystoneY + 0.1, DOOR_Z);
+    scene.add(ks);
 
-    // ── Short hallway south of the door arch (z -50 to -40) ───────────────────
-    const HW_W = DOOR_W + 0.4;   // hallway width matches door
-    const HW_ZN = DOOR_Z;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HALLWAY — z=-52 to z=-40, narrow tunnel between arch and chasm space
+    // ═══════════════════════════════════════════════════════════════════════════
+    const HW_W  = DOOR_W_OUT + 0.6;
+    const HW_ZN = DOOR_Z;       // -52
     const HW_ZS = -40;
-    const HW_H  = DOOR_H + 1;
+    const HW_H  = DOOR_H + 0.5;
+    const HW_D  = HW_ZS - HW_ZN; // 12 (positive = south)
 
-    // Hallway walls
-    const hwWallL = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, HW_H, HW_ZS-HW_ZN), matStone);
-    hwWallL.position.set(-HW_W/2, HW_H/2, (HW_ZN+HW_ZS)/2);
-    scene.add(hwWallL);
-    const hwWallR = hwWallL.clone();
-    hwWallR.position.x = HW_W/2;
-    scene.add(hwWallR);
-    // Hallway ceiling
-    const hwCeil = new THREE.Mesh(new THREE.BoxGeometry(HW_W, 0.6, HW_ZS-HW_ZN), matStone);
-    hwCeil.position.set(0, HW_H, (HW_ZN+HW_ZS)/2);
-    scene.add(hwCeil);
-    // Hallway floor
-    const hwFloor = new THREE.Mesh(new THREE.BoxGeometry(HW_W, 0.4, HW_ZS-HW_ZN), matStone);
-    hwFloor.position.set(0, -0.2, (HW_ZN+HW_ZS)/2);
-    scene.add(hwFloor);
+    const hwGeoW = new THREE.BoxGeometry(WALL_T, HW_H, HW_D);
+    const hwL = new THREE.Mesh(hwGeoW, matStone);
+    hwL.position.set(-HW_W/2, HW_H/2, (HW_ZN+HW_ZS)/2);
+    scene.add(hwL);
+    const hwR = hwL.clone(); hwR.position.x = HW_W/2; scene.add(hwR);
+    const hwCeil = new THREE.Mesh(new THREE.BoxGeometry(HW_W, 0.6, HW_D), matStone);
+    hwCeil.position.set(0, HW_H, (HW_ZN+HW_ZS)/2); scene.add(hwCeil);
+    const hwFloor = new THREE.Mesh(new THREE.BoxGeometry(HW_W, 0.4, HW_D), matStone);
+    hwFloor.position.set(0, -0.2, (HW_ZN+HW_ZS)/2); scene.add(hwFloor);
 
-    // ── Torches in the hall ────────────────────────────────────────────────────
-    [
-      [-14, -58], [14, -58],
-      [-14, -68], [14, -68],
-      [-14, -78], [14, -78],
-    ].forEach(([tx, tz]) => makeTorch(tx, 0, tz));
+    // ── Torches flanking the hallway exit into the chasm space ────────────────
+    // Mounted on the hallway walls near z=-40, visible as the player emerges
+    [[-HW_W/2 - 0.1, -44], [HW_W/2 + 0.1, -44]].forEach(([tx, tz]) => makeTorch(tx, 0, tz));
+
+    // ── Chasm-side torches on the cavern walls flanking the bridge approach ───
+    // Mounted on the broad cavern walls, left and right, z=-38 to -34
+    [[-12, -38], [12, -38], [-12, -34], [12, -34]].forEach(([tx, tz]) => makeTorch(tx, 0, tz));
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SOUTH SIDE — narrow east ledge leading to Lothlórien transition
-    // The player exits the south ramp onto a small landing, then follows a
-    // narrow ledge running east (+X) along z=45 to the transition at x=24.
+    // CAVERN SPACE — walls bounding the chasm and bridge area
+    // West and east walls run the full N-S length of the open chasm space
     // ═══════════════════════════════════════════════════════════════════════════
+    const CAVERN_H   = 35;
+    const CAVERN_ZN  = -40;   // where hallway ends
+    const CAVERN_ZS  =  40;   // where south alcove begins
+    const CAVERN_D   = CAVERN_ZS - CAVERN_ZN;  // 80
+    const CAVERN_XW  = -18;
+    const CAVERN_XE  =  18;
 
-    // Small landing slab at base of south ramp
-    const landingSlab = new THREE.Mesh(new THREE.BoxGeometry(5, 0.4, 8), matStone);
-    landingSlab.position.set(0, -0.2, 42);
-    scene.add(landingSlab);
+    const cavWallGeo = new THREE.BoxGeometry(WALL_T, CAVERN_H, CAVERN_D);
+    const cavWallW = new THREE.Mesh(cavWallGeo, matStone);
+    cavWallW.position.set(CAVERN_XW, CAVERN_H/2, (CAVERN_ZN+CAVERN_ZS)/2);
+    scene.add(cavWallW);
+    const cavWallE = cavWallW.clone(); cavWallE.position.x = CAVERN_XE; scene.add(cavWallE);
 
-    // Cavern wall face the ledge runs along (north face, z≈39)
-    const ledgeCavernWall = new THREE.Mesh(new THREE.BoxGeometry(35, 18, WALL_T), matStone);
-    ledgeCavernWall.position.set(12, 9, 39 - WALL_T/2);
-    scene.add(ledgeCavernWall);
+    // Ceiling over chasm space
+    const cavCeil = new THREE.Mesh(new THREE.BoxGeometry(CAVERN_XE-CAVERN_XW+4, 1.2, CAVERN_D), matStone);
+    cavCeil.position.set(0, CAVERN_H, (CAVERN_ZN+CAVERN_ZS)/2);
+    scene.add(cavCeil);
 
-    // Ledge slab itself — runs east from x=0 to x=24, centred on z=45, width=5
-    const LEDGE_Z  = 45;
-    const LEDGE_ZH = 2.5;
-    const LEDGE_XW = 0;
-    const LEDGE_XE = 24;
-    const ledgeSlab = new THREE.Mesh(
-      new THREE.BoxGeometry(LEDGE_XE - LEDGE_XW, 0.4, LEDGE_ZH * 2), matStone
-    );
-    ledgeSlab.position.set((LEDGE_XW + LEDGE_XE) / 2, -0.2, LEDGE_Z);
-    scene.add(ledgeSlab);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SOUTH ALCOVE — flat ledge to the east after crossing the bridge
+    // Player exits south ramp at z≈+33, turns right (+X), follows alcove to x=28
+    // ═══════════════════════════════════════════════════════════════════════════
+    const ALC_Z   = 38;     // z-centre of the alcove
+    const ALC_ZH  = 4;      // half-width N-S = 4 → 8 total
+    const ALC_XW  = -2;     // west edge (slightly west of bridge centreline)
+    const ALC_XE  = 30;     // east end (beyond transition trigger at x=28)
+    const ALC_H   = 14;     // ceiling height
+    const ALC_D   = ALC_XE - ALC_XW;  // 32
 
-    // Low parapet on the south (outer/void) edge of the ledge
-    const ledgeParapet = new THREE.Mesh(
-      new THREE.BoxGeometry(LEDGE_XE - LEDGE_XW, 0.8, 0.3), matStone
-    );
-    ledgeParapet.position.set((LEDGE_XW + LEDGE_XE) / 2, 0.4, LEDGE_Z + LEDGE_ZH);
-    scene.add(ledgeParapet);
+    // Floor
+    const alcFloor = new THREE.Mesh(new THREE.BoxGeometry(ALC_D, 0.4, ALC_ZH*2), matStone);
+    alcFloor.position.set((ALC_XW+ALC_XE)/2, -0.2, ALC_Z);
+    scene.add(alcFloor);
 
-    // Void underskirt below ledge
-    const ledgeSkirt = new THREE.Mesh(
-      new THREE.BoxGeometry(LEDGE_XE - LEDGE_XW, 8, LEDGE_ZH * 2), matVoid
-    );
-    ledgeSkirt.position.set((LEDGE_XW + LEDGE_XE) / 2, -4.4, LEDGE_Z);
-    scene.add(ledgeSkirt);
+    // North wall (the cavern face the player walks alongside)
+    const alcWallN = new THREE.Mesh(new THREE.BoxGeometry(ALC_D, ALC_H, WALL_T), matStone);
+    alcWallN.position.set((ALC_XW+ALC_XE)/2, ALC_H/2, ALC_Z - ALC_ZH);
+    scene.add(alcWallN);
 
-    // East end cap — solid wall at transition end of ledge
-    const ledgeEndCap = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, 14, LEDGE_ZH * 2 + 4), matStone);
-    ledgeEndCap.position.set(LEDGE_XE + WALL_T / 2, 7, LEDGE_Z);
-    scene.add(ledgeEndCap);
+    // South wall (void side — lower parapet)
+    const alcParapet = new THREE.Mesh(new THREE.BoxGeometry(ALC_D, 1.0, WALL_T), matStone);
+    alcParapet.position.set((ALC_XW+ALC_XE)/2, 0.5, ALC_Z + ALC_ZH);
+    scene.add(alcParapet);
 
-    // Arch columns where the landing meets the ledge (x=0, z=45)
-    {
-      const pL = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.6, 8, 9), matStone);
-      pL.position.set(0, 8 / 2 - 8 * 0.25, LEDGE_Z - LEDGE_ZH);
-      scene.add(pL);
-      const pR = pL.clone();
-      pR.position.z = LEDGE_Z + LEDGE_ZH;
-      scene.add(pR);
-      const lintel = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, 0.4, LEDGE_ZH * 2 + 1.2), matStone);
-      lintel.position.set(0, 7.2, LEDGE_Z);
-      scene.add(lintel);
-    }
+    // Ceiling
+    const alcCeil = new THREE.Mesh(new THREE.BoxGeometry(ALC_D, 0.6, ALC_ZH*2), matStone);
+    alcCeil.position.set((ALC_XW+ALC_XE)/2, ALC_H, ALC_Z);
+    scene.add(alcCeil);
 
-    // Torches on the ledge — spaced along the east run
-    [[6, LEDGE_Z - 2], [12, LEDGE_Z - 2], [18, LEDGE_Z - 2]].forEach(([tx, tz]) => {
+    // East end wall (beyond transition)
+    const alcEndWall = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, ALC_H, ALC_ZH*2+2), matStone);
+    alcEndWall.position.set(ALC_XE, ALC_H/2, ALC_Z);
+    scene.add(alcEndWall);
+
+    // Void underskirt below alcove parapet
+    const alcSkirt = new THREE.Mesh(new THREE.BoxGeometry(ALC_D, 8, ALC_ZH*2), matVoid);
+    alcSkirt.position.set((ALC_XW+ALC_XE)/2, -4.4, ALC_Z);
+    scene.add(alcSkirt);
+
+    // Torches along the north wall of the alcove
+    [[6, ALC_Z-ALC_ZH+0.2], [14, ALC_Z-ALC_ZH+0.2], [22, ALC_Z-ALC_ZH+0.2]].forEach(([tx, tz]) => {
       makeTorch(tx, 0, tz);
     });
 
@@ -554,31 +519,31 @@ const MoriaBridge = {
     // ═══════════════════════════════════════════════════════════════════════════
     {
       const bigFire = new THREE.Mesh(new THREE.SphereGeometry(3.5, 10, 7), matFireOuter.clone());
-      bigFire.position.set(0, 6, -100);
+      bigFire.position.set(0, 6, -115);
       scene.add(bigFire);
       refs.balrogFire = bigFire;
 
       const inner = new THREE.Mesh(new THREE.SphereGeometry(1.6, 10, 7), matFireCore);
-      inner.position.set(0, 6.5, -100);
+      inner.position.set(0, 6.5, -115);
       scene.add(inner);
 
-      const balrogLight = new THREE.PointLight(0xff2200, 2.2, 90);
-      balrogLight.position.set(0, 10, -95);
+      const balrogLight = new THREE.PointLight(0xff2200, 2.2, 100);
+      balrogLight.position.set(0, 10, -108);
       scene.add(balrogLight);
       refs.balrogGlow = balrogLight;
 
-      const balrogFill = new THREE.PointLight(0xff6600, 0.9, 65);
-      balrogFill.position.set(0, 4, -75);
+      const balrogFill = new THREE.PointLight(0xff6600, 0.9, 70);
+      balrogFill.position.set(0, 4, -85);
       scene.add(balrogFill);
       refs.balrogFill = balrogFill;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CHASM FIRES — deep below the bridge flanks
+    // CHASM FIRES — deep below the bridge, visible on both flanks
     // ═══════════════════════════════════════════════════════════════════════════
     [
-      [-8, -22], [-10, -8], [-8,  8], [-10, 20],
-      [ 8,  18], [ 10,  4], [ 8,-12], [ 10,-26],
+      [-8, -22], [-10, -8], [-8,  8], [-10,  20],
+      [ 8,  18], [ 10,  4], [ 8, -12], [ 10, -26],
     ].forEach(([fx, fz]) => {
       const baseY = -55 + rnd(-5, 5);
       const outer = new THREE.Mesh(new THREE.SphereGeometry(rnd(0.5, 1.0), 8, 6), matFireOuter.clone());
@@ -592,12 +557,12 @@ const MoriaBridge = {
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // GANDALF STAFF — bridge crown
+    // GANDALF STAFF — bridge crown, facing north toward Balrog
     // ═══════════════════════════════════════════════════════════════════════════
     {
       const staffMat = new THREE.MeshStandardMaterial({ color: 0x8888aa, roughness: 0.6, metalness: 0.15 });
       const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, 3.2, 7), staffMat);
-      staff.position.set(0.3, 8.0 + 1.6, -0.5);
+      staff.position.set(0.3, 8.0 + 1.6, -1);
       staff.rotation.z = 0.04;
       scene.add(staff);
 
@@ -605,7 +570,7 @@ const MoriaBridge = {
         color: 0xddeeff, emissive: 0xaaccff, emissiveIntensity: 3.0, roughness: 0.2,
       });
       const tip = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), tipMat);
-      tip.position.set(0.3, 8.0 + 3.25, -0.5);
+      tip.position.set(0.3, 8.0 + 3.25, -1);
       scene.add(tip);
       refs.staffTip = tip;
 
@@ -616,27 +581,19 @@ const MoriaBridge = {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // FAR ENCLOSURE — pushed well beyond transitions so never visible at spawn
+    // FAR ENCLOSURE — void boxes beyond the playable edges
     // ═══════════════════════════════════════════════════════════════════════════
-    // North back wall — behind the hall (beyond moriadoors transition at z=-82)
-    const northFarWall = new THREE.Mesh(new THREE.BoxGeometry(200, 50, 4), matVoid);
-    northFarWall.position.set(0, 25, -108);
-    scene.add(northFarWall);
+    // North back wall (beyond hall, beyond moriadoors transition at z=-98)
+    const nWall = new THREE.Mesh(new THREE.BoxGeometry(200, 50, 4), matVoid);
+    nWall.position.set(0, 25, -112); scene.add(nWall);
 
-    // South void wall — behind the ledge's south parapet face
-    const southFarWall = new THREE.Mesh(new THREE.BoxGeometry(60, 20, 4), matVoid);
-    southFarWall.position.set(12, 10, 52);
-    scene.add(southFarWall);
+    // West enclosure
+    const wWall = new THREE.Mesh(new THREE.BoxGeometry(4, 50, 220), matVoid);
+    wWall.position.set(-95, 25, 0); scene.add(wWall);
 
-    // West side enclosure
-    const westWall = new THREE.Mesh(new THREE.BoxGeometry(4, 50, 210), matVoid);
-    westWall.position.set(-95, 25, 0);
-    scene.add(westWall);
-
-    // East end wall — beyond transition at x=24
-    const eastWall = new THREE.Mesh(new THREE.BoxGeometry(4, 20, 30), matVoid);
-    eastWall.position.set(30, 10, 45);
-    scene.add(eastWall);
+    // East end wall beyond alcove
+    const eWall = new THREE.Mesh(new THREE.BoxGeometry(4, 20, 20), matVoid);
+    eWall.position.set(36, 10, ALC_Z); scene.add(eWall);
 
     return refs;
   },
@@ -646,18 +603,15 @@ const MoriaBridge = {
     refs.time += dt;
     const tt = refs.time;
 
-    // ── Torch flame sprites + embers ──────────────────────────────────────────
     refs.torches.forEach((torch, ti) => {
-      // Animate each flame sprite
       torch.flames.forEach(sp => {
         const u = sp.userData;
-        const flicker = 0.85 + 0.2 * Math.sin(tt * u.speed * 5.0 + u.phase)
-                             + 0.1 * Math.sin(tt * u.speed * 11.0 + u.phase * 2);
-        sp.scale.set(u.sz * flicker, u.sz * 1.6 * flicker, 1);
+        const f = 0.85 + 0.2 * Math.sin(tt * u.speed * 5.0 + u.phase)
+                       + 0.1 * Math.sin(tt * u.speed * 11.0 + u.phase * 2);
+        sp.scale.set(u.sz * f, u.sz * 1.6 * f, 1);
         sp.position.y = u.baseY + 0.04 * Math.sin(tt * u.speed * 3.0 + u.phase);
       });
 
-      // Tick embers
       const pos = torch.ePOS;
       for (let i = 0; i < torch.EC; i++) {
         torch.eLIF[i] -= dt * (0.6 + Math.random() * 0.4);
@@ -668,26 +622,23 @@ const MoriaBridge = {
           pos[i*3]   += v.x * dt;
           pos[i*3+1] += v.y * dt;
           pos[i*3+2] += v.z * dt;
-          v.y -= 0.4 * dt;   // slight gravity
+          v.y -= 0.4 * dt;
         }
       }
       torch.eGeo.attributes.position.needsUpdate = true;
 
-      // Flicker torch light
       const tl = torch.light;
       if (tl._base === undefined) tl._base = tl.intensity;
       tl.intensity = tl._base * (0.75 + 0.32 * Math.sin(tt * 5.7 + ti * 2.1)
                                        + 0.12 * Math.sin(tt * 11.3 + ti * 0.9));
     });
 
-    // ── Chasm point lights ────────────────────────────────────────────────────
     refs.chasmLights.forEach((light, i) => {
       if (light._base === undefined) light._base = light.intensity;
       light.intensity = light._base * (0.7 + 0.38 * Math.sin(tt * 4.8 + i * 1.9)
                                            + 0.12 * Math.sin(tt * 9.3 + i * 0.8));
     });
 
-    // ── Balrog ────────────────────────────────────────────────────────────────
     if (refs.balrogGlow) {
       refs.balrogGlow.intensity = 2.2 * (0.72 + 0.38 * Math.sin(tt * 1.1) + 0.18 * Math.sin(tt * 2.7));
     }
@@ -697,8 +648,6 @@ const MoriaBridge = {
     if (refs.balrogFire) {
       refs.balrogFire.scale.setScalar(0.88 + 0.18 * Math.sin(tt * 3.0) + 0.09 * Math.sin(tt * 6.5));
     }
-
-    // ── Gandalf staff ─────────────────────────────────────────────────────────
     if (refs.staffTip) {
       refs.staffTip.material.emissiveIntensity = 3.0 * (0.82 + 0.22 * Math.sin(tt * 2.1) + 0.08 * Math.sin(tt * 5.3));
     }
