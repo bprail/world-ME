@@ -85,49 +85,41 @@ const MoriaBridge = {
   ],
 
   // Only the elevated bridge needs walkables — everything else is ground-level terrain.
+  // All segments use width:2.2 throughout so walkable coverage is seamless.
   // yaw π*1.5 = segment runs east-west (along X axis).
   walkables: [
     // Bridge west ramp (x=24→32, rises 0→4)
     { x:28,   z:0, yaw:Math.PI*1.5, length:8, width:2.2, yStart:0.0, yEnd:4.0 },
     // Arch seg 1 (x=32→39, rises 4→6.5)
-    { x:35.5, z:0, yaw:Math.PI*1.5, length:7, width:1.4, yStart:4.0, yEnd:6.5 },
+    { x:35.5, z:0, yaw:Math.PI*1.5, length:7, width:2.2, yStart:4.0, yEnd:6.5 },
     // Arch seg 2 (x=39→44, rises 6.5→8)
-    { x:41.5, z:0, yaw:Math.PI*1.5, length:5, width:1.4, yStart:6.5, yEnd:8.0 },
+    { x:41.5, z:0, yaw:Math.PI*1.5, length:5, width:2.2, yStart:6.5, yEnd:8.0 },
     // Crown (x=44→48, flat 8)
-    { x:46,   z:0, yaw:Math.PI*1.5, length:4, width:1.4, yStart:8.0, yEnd:8.0 },
+    { x:46,   z:0, yaw:Math.PI*1.5, length:4, width:2.2, yStart:8.0, yEnd:8.0 },
     // Arch seg 3 (x=48→53, descends 8→6.5)
-    { x:50.5, z:0, yaw:Math.PI*1.5, length:5, width:1.4, yStart:8.0, yEnd:6.5 },
+    { x:50.5, z:0, yaw:Math.PI*1.5, length:5, width:2.2, yStart:8.0, yEnd:6.5 },
     // Arch seg 4 (x=53→60, descends 6.5→4)
-    { x:56.5, z:0, yaw:Math.PI*1.5, length:7, width:1.4, yStart:6.5, yEnd:4.0 },
+    { x:56.5, z:0, yaw:Math.PI*1.5, length:7, width:2.2, yStart:6.5, yEnd:4.0 },
     // East ramp (x=60→68, descends 4→0)
     { x:64,   z:0, yaw:Math.PI*1.5, length:8, width:2.2, yStart:4.0, yEnd:0.0 },
   ],
 
-  // Barriers: chasm flanks either side of bridge.
-  // Bridge walkable half-width = 1.1 (width 2.2) → edge at z=±1.1
-  // Barrier inner edge must be at z=±1.1 to leave no gap.
-  // centre z = ±(1.1 + 7) = ±8.1, width 14 → inner edge at ±1.1 ✓
+  // Barriers flush with walkable edges: half-width 1.1 → inner edge at z=±1.1
+  // centre z = ±(1.1 + 7) = ±8.1, d=14 → inner edge exactly at ±1.1, no gap.
   barriers: [
-    // Chasm north flank — covers x=28→68, inner edge at z=-1.1
-    { x:48, z:-8.1, w:40, d:14, yaw:0 },
-    // Chasm south flank — covers x=28→68, inner edge at z=+1.1
-    { x:48, z: 8.1, w:40, d:14, yaw:0 },
-
-    // North blocking wall at east bridge exit (forces player south)
+    // Chasm north flank — covers x=24→68
+    { x:46, z:-8.1, w:44, d:14, yaw:0 },
+    // Chasm south flank — covers x=24→68
+    { x:46, z: 8.1, w:44, d:14, yaw:0 },
   ],
 
   buildScene(THREE, scene, groundY, MAT) {
 
     const refs = {
-      torches:      [],
-      chasmLights:  [],
-      balrogGlow:   null,
-      balrogFill:   null,
-      balrogFire:   null,
-      staffTip:     null,
-      staffTipLight:null,
-      daylightLight:null,
-      time:         0,
+      staffTip:      null,
+      staffTipLight: null,
+      daylightLight: null,
+      time:          0,
     };
 
     const rnd = (a, b) => a + Math.random() * (b - a);
@@ -140,61 +132,6 @@ const MoriaBridge = {
       color:0x330800, emissive:0xaa1800, emissiveIntensity:1.1, roughness:1.0,
       transparent:true, opacity:0.65,
     });
-    const matFireCore = new THREE.MeshStandardMaterial({
-      color:0xff6600, emissive:0xff4400, emissiveIntensity:3.5, roughness:0.3,
-    });
-    const matFireOuter = new THREE.MeshStandardMaterial({
-      color:0xff2200, emissive:0xdd1100, emissiveIntensity:2.0,
-      roughness:0.5, transparent:true, opacity:0.70,
-    });
-
-    // ── Torch factory ──────────────────────────────────────────────────────────
-    function makeFlameTexture(c1, c2) {
-      const cv = document.createElement('canvas'); cv.width = cv.height = 64;
-      const ctx = cv.getContext('2d');
-      const g = ctx.createRadialGradient(32,40,2,32,32,30);
-      g.addColorStop(0,c1); g.addColorStop(0.5,c2); g.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle = g; ctx.fillRect(0,0,64,64);
-      return new THREE.CanvasTexture(cv);
-    }
-
-    function makeTorch(wx, wy, wz) {
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.065,1.6,7), matStone);
-      pole.position.set(wx, wy+0.8, wz); scene.add(pole);
-      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.09,0.22,8), matStone);
-      bowl.position.set(wx, wy+1.71, wz); scene.add(bowl);
-      const fireBase = wy + 1.82;
-      const flames = [];
-      [
-        {tex:makeFlameTexture('rgba(255,240,180,0.95)','rgba(255,100,10,0.6)'), sz:0.38,speed:1.2,phase:0},
-        {tex:makeFlameTexture('rgba(255,160,30,0.85)', 'rgba(200,40,0,0.4)'),  sz:0.30,speed:0.9,phase:1.0},
-        {tex:makeFlameTexture('rgba(255,200,80,0.7)',  'rgba(180,60,0,0.2)'),  sz:0.46,speed:1.5,phase:2.1},
-      ].forEach(cfg => {
-        const mat = new THREE.SpriteMaterial({map:cfg.tex,transparent:true,
-          blending:THREE.AdditiveBlending,depthWrite:false});
-        const sp = new THREE.Sprite(mat);
-        sp.position.set(wx, fireBase+cfg.sz*0.5, wz);
-        sp.scale.set(cfg.sz, cfg.sz*1.6, 1);
-        sp.userData = {baseY:sp.position.y,...cfg};
-        scene.add(sp); flames.push(sp);
-      });
-      const EC=30; const eGeo=new THREE.BufferGeometry();
-      const ePOS=new Float32Array(EC*3), eVEL=[], eLIF=new Float32Array(EC);
-      function resetE(i){
-        const a=Math.random()*Math.PI*2, r=Math.random()*0.12;
-        ePOS[i*3]=wx+Math.cos(a)*r; ePOS[i*3+1]=fireBase+0.1+Math.random()*0.15; ePOS[i*3+2]=wz+Math.sin(a)*r;
-        eVEL[i]=new THREE.Vector3((Math.random()-0.5)*0.18,0.5+Math.random()*0.7,(Math.random()-0.5)*0.18);
-        eLIF[i]=Math.random();
-      }
-      for(let i=0;i<EC;i++) resetE(i);
-      eGeo.setAttribute('position',new THREE.BufferAttribute(ePOS,3));
-      const eMat=new THREE.PointsMaterial({color:0xffaa22,size:0.055,transparent:true,opacity:0.9,
-        blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true});
-      scene.add(new THREE.Points(eGeo,eMat));
-      const light=new THREE.PointLight(0xff6622,0.9,10);
-      light.position.set(wx,fireBase+0.3,wz); scene.add(light);
-      refs.torches.push({flames,eGeo,ePOS,eVEL,eLIF,EC,resetE,light});
-    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BRIDGE — slabs along X axis, rotate around Z
@@ -289,8 +226,8 @@ const MoriaBridge = {
 
     // Hall torches — on north (z≈-17) and south (z≈+17) walls between columns
     [-65,-55,-45,-35,-25,-15,-5].forEach(tx=>{
-      makeTorch(tx,0,-17);
-      makeTorch(tx,0, 17);
+      FX.makeTorch(tx, 0, -17);
+      FX.makeTorch(tx, 0,  17);
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -352,12 +289,11 @@ const MoriaBridge = {
     const pF=new THREE.Mesh(new THREE.BoxGeometry(PASS_DX,0.4,PASS_W),matStone);
     pF.position.set(10,-0.2,0); scene.add(pF);
 
-    // Passage torches — near exit at x≈18
-    makeTorch(17,0,-PASS_W/2+0.3);
-    makeTorch(17,0, PASS_W/2-0.3);
-    // And midway
-    makeTorch(8,0,-PASS_W/2+0.3);
-    makeTorch(8,0, PASS_W/2-0.3);
+    // Passage torches
+    FX.makeTorch(17, 0, -PASS_W/2+0.3);
+    FX.makeTorch(17, 0,  PASS_W/2-0.3);
+    FX.makeTorch( 8, 0, -PASS_W/2+0.3);
+    FX.makeTorch( 8, 0,  PASS_W/2-0.3);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CHASM SPACE CAVERN WALLS — x=20→68, z=±16
@@ -381,11 +317,11 @@ const MoriaBridge = {
     const cwPA=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,CAVN_H-PASS_H,PASS_W),matStone);
     cwPA.position.set(20,PASS_H+(CAVN_H-PASS_H)/2,0); scene.add(cwPA);
 
-    // Chasm-space torches — on west wall (x=20), north and south of passage opening
-    makeTorch(20.2,0,-10);
-    makeTorch(20.2,0, 10);
-    makeTorch(20.2,0,-5);
-    makeTorch(20.2,0, 5);
+    // Chasm-space torches — on west wall, flanking passage opening
+    FX.makeTorch(20.2, 0, -10);
+    FX.makeTorch(20.2, 0,  10);
+    FX.makeTorch(20.2, 0,  -5);
+    FX.makeTorch(20.2, 0,   5);
 
     // North wall blocking east bridge exit — west face flush with chasm east edge (x=68)
     // Spans x=68→80, z=-16→-2. South face at z=-2 clears the bridge.
@@ -422,8 +358,8 @@ const MoriaBridge = {
     const cF=new THREE.Mesh(new THREE.BoxGeometry(8,0.4,18),matStone);
     cF.position.set(74,-0.2,19); scene.add(cF);
     [12,18,24].forEach(tz=>{
-      makeTorch(71.2,0,tz);
-      makeTorch(76.8,0,tz);
+      FX.makeTorch(71.2, 0, tz);
+      FX.makeTorch(76.8, 0, tz);
     });
 
     // ── Ante-room (x=68→80, z=28→42) ────────────────────────────────────────
@@ -474,30 +410,23 @@ const MoriaBridge = {
     scene.add(floorPool);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // BALROG FIRE — deep west
+    // BALROG FIRE — deep west, behind the hall
     // ═══════════════════════════════════════════════════════════════════════════
-    {
-      const bf=new THREE.Mesh(new THREE.SphereGeometry(3.5,10,7),matFireOuter.clone());
-      bf.position.set(-90,6,0); scene.add(bf); refs.balrogFire=bf;
-      const bi=new THREE.Mesh(new THREE.SphereGeometry(1.6,10,7),matFireCore);
-      bi.position.set(-90,6.5,0); scene.add(bi);
-      const bl=new THREE.PointLight(0xff2200,2.2,100);
-      bl.position.set(-80,10,0); scene.add(bl); refs.balrogGlow=bl;
-      const bfl=new THREE.PointLight(0xff6600,0.9,65);
-      bfl.position.set(-60,4,0); scene.add(bfl); refs.balrogFill=bfl;
-    }
+    FX.makeFire(-90, 6, 0, { color:0xff2200, intensity:2.2, range:100, flameScale:3.5, emberCount:120 });
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CHASM FIRES
+    // CHASM FIRES — deep below bridge, on both flanks
     // ═══════════════════════════════════════════════════════════════════════════
     [[28,-7],[34,-8],[42,-7],[50,-8],[56,-7],
      [28, 7],[36, 8],[44, 7],[52, 8],[58, 7]].forEach(([fx,fz])=>{
-      const baseY=-55+rnd(-4,4);
-      const fo=new THREE.Mesh(new THREE.SphereGeometry(rnd(0.5,1.0),8,6),matFireOuter.clone());
-      fo.position.set(fx,baseY+rnd(1,3),fz); scene.add(fo);
-      const fl=new THREE.PointLight(0xff4400,rnd(0.3,0.8),rnd(14,24));
-      fl.position.set(fx,baseY+3,fz); scene.add(fl);
-      refs.chasmLights.push(fl);
+      const baseY = -55 + rnd(-4, 4);
+      FX.makeFire(fx, baseY + rnd(1,3), fz, {
+        color:      0xff4400,
+        intensity:  rnd(0.3, 0.8),
+        range:      rnd(14, 24),
+        flameScale: rnd(0.5, 1.0),
+        emberCount: 20,
+      });
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -532,47 +461,14 @@ const MoriaBridge = {
   onFrame(t, dt, refs, playerPos) {
     refs.time += dt;
     const tt = refs.time;
-
-    refs.torches.forEach((torch,ti)=>{
-      torch.flames.forEach(sp=>{
-        const u=sp.userData;
-        const f=0.85+0.2*Math.sin(tt*u.speed*5+u.phase)+0.1*Math.sin(tt*u.speed*11+u.phase*2);
-        sp.scale.set(u.sz*f,u.sz*1.6*f,1);
-        sp.position.y=u.baseY+0.04*Math.sin(tt*u.speed*3+u.phase);
-      });
-      const pos=torch.ePOS;
-      for(let i=0;i<torch.EC;i++){
-        torch.eLIF[i]-=dt*(0.6+Math.random()*0.4);
-        if(torch.eLIF[i]<=0){torch.resetE(i);}
-        else{
-          const v=torch.eVEL[i];
-          pos[i*3]+=v.x*dt; pos[i*3+1]+=v.y*dt; pos[i*3+2]+=v.z*dt;
-          v.y-=0.4*dt;
-        }
-      }
-      torch.eGeo.attributes.position.needsUpdate=true;
-      const tl=torch.light;
-      if(tl._base===undefined) tl._base=tl.intensity;
-      tl.intensity=tl._base*(0.75+0.32*Math.sin(tt*5.7+ti*2.1)+0.12*Math.sin(tt*11.3+ti*0.9));
-    });
-
-    refs.chasmLights.forEach((l,i)=>{
-      if(l._base===undefined) l._base=l.intensity;
-      l.intensity=l._base*(0.7+0.38*Math.sin(tt*4.8+i*1.9)+0.12*Math.sin(tt*9.3+i*0.8));
-    });
-
-    if(refs.balrogGlow)
-      refs.balrogGlow.intensity=2.2*(0.72+0.38*Math.sin(tt*1.1)+0.18*Math.sin(tt*2.7));
-    if(refs.balrogFill)
-      refs.balrogFill.intensity=0.9+0.4*Math.sin(tt*1.6+0.4);
-    if(refs.balrogFire)
-      refs.balrogFire.scale.setScalar(0.88+0.18*Math.sin(tt*3.0)+0.09*Math.sin(tt*6.5));
-    if(refs.staffTip)
-      refs.staffTip.material.emissiveIntensity=3.0*(0.82+0.22*Math.sin(tt*2.1)+0.08*Math.sin(tt*5.3));
-    if(refs.staffTipLight)
-      refs.staffTipLight.intensity=0.75+0.28*Math.sin(tt*2.0);
-    if(refs.daylightLight)
-      refs.daylightLight.intensity=3.0+0.3*Math.sin(tt*0.6);
+    // FX system handles all torch and fire animation automatically.
+    // Only manually animate the Gandalf staff tip and the Lothlórien daylight.
+    if (refs.staffTip)
+      refs.staffTip.material.emissiveIntensity = 3.0 * (0.82 + 0.22*Math.sin(tt*2.1) + 0.08*Math.sin(tt*5.3));
+    if (refs.staffTipLight)
+      refs.staffTipLight.intensity = 0.75 + 0.28*Math.sin(tt*2.0);
+    if (refs.daylightLight)
+      refs.daylightLight.intensity = 3.0 + 0.3*Math.sin(tt*0.6);
   },
 
 };
