@@ -166,7 +166,7 @@ const CarasGaladhon = {
 
   arrivals: {
     lothlorien: { x:  0, z:  60, yaw: 0           },  // arriving from +Z, facing -Z
-    anduin:     { x: 20, z: -60, yaw: Math.PI * 1.5 }, // arriving from -X side, facing +X → no, from east
+    argonath:     { x: 20, z: -60, yaw: Math.PI * 1.5 }, // arriving from -X side, facing +X → no, from east
     // Anduin is to the east (+X); arriving from there means coming from +X, facing -X
   },
 
@@ -180,7 +180,7 @@ const CarasGaladhon = {
     },
     {
       trigger: { x: 30, z: -55, radius: 8 },
-      to: 'anduin',
+      to: 'argonath',
     },
   ],
 
