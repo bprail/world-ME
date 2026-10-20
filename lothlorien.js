@@ -196,11 +196,11 @@ const Lothlorien = {
   ],
 
   // ─── Player start & arrivals ─────────────────────────────────────────────────
-  start: { x: 4, z: 72, yaw: Math.PI },   // at +Z (north) end, facing south (-Z)
+  start: { x: 4, z: 72, yaw: 0 },         // at +Z (south) end, facing north into scene
 
   arrivals: {
-    moriabridge:   { x: 4, z:  72, yaw: Math.PI },  // arriving from north (+Z), facing south
-    carasgaladhon: { x: 2, z: -72, yaw: 0       },  // arriving from south (-Z), facing north
+    moriabridge:   { x: 4, z:  72, yaw: 0       },  // arriving from south (+Z), facing north (-Z)
+    carasgaladhon: { x: 2, z: -72, yaw: Math.PI },  // arriving from north (-Z), facing south (+Z)
   },
 
   // ─── Boundary & transitions ───────────────────────────────────────────────────
