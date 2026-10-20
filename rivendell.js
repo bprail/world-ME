@@ -103,7 +103,7 @@ const Rivendell = {
     // A path notch (1.8 units deep, 2.2 units wide) winds diagonally up
     // the slope, making the route readable from across the valley.
     const rzFac = Math.max(0, Math.min(1, z / 4))
-                * Math.max(0, Math.min(1, (44 - z) / 4));
+                * Math.max(0, Math.min(1, (82 - z) / 4));
     const rxFac = Math.max(0, Math.min(1, (x - 8) / 3))
                 * Math.max(0, Math.min(1, (28 - x) / 3));
     const rRaw  = rzFac * rxFac;
@@ -114,8 +114,8 @@ const Rivendell = {
       const clipped   = Math.min(withShelf, rampCeil);
       const withRamp  = withShelf + (clipped - withShelf) * rMask;
 
-      // Path notch: S-curve from (x≈8,z=2) to (x≈23,z=40)
-      const pt = Math.max(0, Math.min(1, (z - 2) / 38));
+      // Path notch: S-curve from (x≈8,z=2) to (x≈23,z=78) — doubled length
+      const pt = Math.max(0, Math.min(1, (z - 2) / 74));
       const pathCx = 7 + pt * 16 + Math.sin(pt * Math.PI) * 1.8;
       const pDist  = Math.abs(x - pathCx);
       const pN     = Math.max(0, 1 - pDist / 2.2);
@@ -163,8 +163,8 @@ const Rivendell = {
     b = lerp(b, 0.12, streamProx * 0.55);
 
     // Eregion path: packed-earth tone on the ramp notch
-    if (vz > 2 && vz < 42 && vx > 7 && vx < 28) {
-      const pt2   = Math.max(0, Math.min(1, (vz - 2) / 38));
+    if (vz > 2 && vz < 78 && vx > 7 && vx < 28) {
+      const pt2   = Math.max(0, Math.min(1, (vz - 2) / 74));
       const pCx2  = 7 + pt2 * 16 + Math.sin(pt2 * Math.PI) * 1.8;
       const pD2   = Math.abs(vx - pCx2);
       const pFac2 = Math.max(0, 1 - pD2 / 2.5);
@@ -235,7 +235,7 @@ const Rivendell = {
   boundary: 150,
   transitions: [
     { trigger: { x: 20, z: 108, radius: 14 }, to: 'Weathertop' },
-    { trigger: { x: 24, z: 32,  radius: 10 }, to: 'eregion'    },
+    { trigger: { x: 24, z: 64,  radius: 10 }, to: 'eregion'    },
   ],
   arrivals: {
     'Weathertop': { x: 20, z: 92, yaw: 0          },
@@ -563,11 +563,11 @@ const Rivendell = {
     //  A few autumn trees provide visual depth on the slope.
     // =====================================================
 
-    // Path waymarker stones — line the notch as it climbs
+    // Path waymarker stones — spaced every ~9 units along doubled ramp
     [
-      [10, 10, 1.6], [12, 14, 1.4], [14, 18, 1.8],
-      [16, 22, 1.5], [18, 26, 2.0], [20, 30, 1.7],
-      [22, 34, 2.2], [21, 38, 1.9],
+      [10, 10, 1.6], [11, 18, 1.4], [13, 26, 1.8],
+      [15, 34, 1.5], [16, 42, 2.0], [18, 50, 1.7],
+      [20, 58, 2.2], [21, 66, 1.9],
     ].forEach(([sx, sz, sh]) => {
       const sm = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.30, sh, 7), matMoss);
       sm.position.set(sx, groundY(sx, sz) + sh/2 - sh*0.2, sz);
@@ -575,17 +575,18 @@ const Rivendell = {
     });
 
     // Top-of-ramp marker — two taller stones flanking the exit col
-    [[23, 32, 3.0], [21, 33, 2.8]].forEach(([sx, sz, sh]) => {
+    [[23, 66, 3.0], [21, 67, 2.8]].forEach(([sx, sz, sh]) => {
       const sm = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.42, sh, 9), matDark);
       sm.position.set(sx, groundY(sx, sz) + sh/2 - sh*0.2, sz);
       scene.add(sm);
     });
 
-    // Slope trees — autumn canopy visible from valley floor
+    // Slope trees — spread across full ramp length
     [
-      [12, 8,  matAmber], [14, 14, matGold],
-      [16, 20, matRust],  [18, 26, matAmber],
-      [20, 14, matCopper],[22, 20, matGold],
+      [12,  8, matAmber], [14, 16, matGold],
+      [16, 24, matRust],  [18, 32, matAmber],
+      [20, 40, matCopper],[19, 48, matGold],
+      [21, 56, matRust],  [22, 62, matAmber],
     ].forEach(([tx, tz, lm], i) => {
       const gy = groundY(tx, tz);
       const h  = 4.8 + (i % 3) * 1.1;
