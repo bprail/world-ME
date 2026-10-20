@@ -301,7 +301,7 @@ const MoriaBridge = {
     // ═══════════════════════════════════════════════════════════════════════════
     const CAVN_H=30;
     // North cavern wall (x=20→68, 48 units long)
-    const CAVN_XC=44, CAVN_DX=52;
+    const CAVN_XC=43.5, CAVN_DX=52;
     const cvN=new THREE.Mesh(new THREE.BoxGeometry(CAVN_DX,CAVN_H,WALL_T),matStone);
     cvN.position.set(CAVN_XC,CAVN_H/2,-16); scene.add(cvN);
     const cvS=cvN.clone(); cvS.position.z=16; scene.add(cvS);
@@ -389,11 +389,11 @@ const MoriaBridge = {
     spotTarget.position.set(72, 0, 24);
     scene.add(spotTarget);
 
-    const daylightSpot = new THREE.SpotLight(0xaaffcc, 5.0);
+    const daylightSpot = new THREE.SpotLight(0xaaffcc, 18.0);
     daylightSpot.position.set(74, 12, 30);
     daylightSpot.target = spotTarget;
     daylightSpot.angle = Math.PI * 0.06;     // narrow beam
-    daylightSpot.penumbra = 0.85;            // soft edge
+    daylightSpot.penumbra = 0.08;            // soft edge
     daylightSpot.distance = 50;
     daylightSpot.castShadow = false;
     scene.add(daylightSpot);
