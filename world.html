@@ -377,6 +377,17 @@ function buildFX(){
     return new THREE.CanvasTexture(cv);
   }
 
+  // Shared flame textures — created ONCE per location load, reused by every
+  // fire and torch. This keeps texture unit count well within the WebGL
+  // MAX_TEXTURE_IMAGE_UNITS limit (16) regardless of how many flames exist.
+  const _sharedTex = [
+    makeFlameTexture('rgba(255,240,180,0.95)','rgba(255,100,10,0.6)'),
+    makeFlameTexture('rgba(255,160,30,0.85)', 'rgba(200,40,0,0.4)' ),
+    makeFlameTexture('rgba(255,200,80,0.7)',  'rgba(180,60,0,0.2)' ),
+  ];
+  const _sharedSpeeds = [1.2, 0.9, 1.5];
+  const _sharedPhases = [0.0, 1.0, 2.1];
+
   // makeFire — campfire-scale flame at world position (wx, wy, wz)
   // opts: { color, intensity, range, flameScale, emberCount, emberSize }
   function makeFire(wx, wy, wz, opts={}){
@@ -400,21 +411,21 @@ function buildFX(){
     fill.position.set(wx, fireBase+0.5, wz);
     scene.add(fill);
 
-    // Flame sprites
-    const flameConfigs=[
-      {c1:'rgba(255,240,180,0.95)',c2:'rgba(255,100,10,0.6)', sz:1.1*fScale,speed:1.2,phase:0  },
-      {c1:'rgba(255,160,30,0.85)', c2:'rgba(200,40,0,0.4)',   sz:0.85*fScale,speed:0.9,phase:1.0},
-      {c1:'rgba(255,200,80,0.7)',  c2:'rgba(180,60,0,0.2)',   sz:1.3*fScale, speed:1.5,phase:2.1},
-    ];
+    // Flame sprites — share textures, vary only size/speed/phase per sprite
+    const flameSizes  = [1.1*fScale, 0.85*fScale, 1.3*fScale];
     const flames=[];
-    flameConfigs.forEach(cfg=>{
+    _sharedTex.forEach((tex, i)=>{
+      const sz=flameSizes[i];
+      // Each sprite gets its own SpriteMaterial instance (for independent opacity
+      // animation) but shares the underlying texture — only 3 texture units total
+      // across ALL fires and torches in the scene.
       const mat=new THREE.SpriteMaterial({
-        map:makeFlameTexture(cfg.c1,cfg.c2),
-        transparent:true, blending:THREE.AdditiveBlending, depthWrite:false});
+        map:tex, transparent:true,
+        blending:THREE.AdditiveBlending, depthWrite:false});
       const sp=new THREE.Sprite(mat);
-      sp.position.set(wx, fireBase+cfg.sz*0.5, wz);
-      sp.scale.set(cfg.sz, cfg.sz*1.6, 1);
-      sp.userData={baseY:fireBase+cfg.sz*0.5, ...cfg};
+      sp.position.set(wx, fireBase+sz*0.5, wz);
+      sp.scale.set(sz, sz*1.6, 1);
+      sp.userData={baseY:fireBase+sz*0.5, sz, speed:_sharedSpeeds[i], phase:_sharedPhases[i]};
       scene.add(sp);
       flames.push(sp);
     });
@@ -500,7 +511,7 @@ function loadLocation(locName, mod, arrivalPos){
   // Teardown FX (fires, torches)
   for(const fx of currentFX){
     scene.remove(fx.light); scene.remove(fx.fill);
-    fx.flames.forEach(f=>{ scene.remove(f); f.material.map.dispose(); f.material.dispose(); });
+    fx.flames.forEach(f=>{ scene.remove(f); f.material.dispose(); }); // textures are shared, don't dispose
     fx.eGeo.dispose(); fx.embers.material.dispose(); scene.remove(fx.embers);
   }
   currentFX=[];
