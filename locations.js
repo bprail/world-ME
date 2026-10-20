@@ -19,7 +19,9 @@ const LOCATION_MANIFEST = {
   moriabridge: { src:'moriabridge.js',     global:'MoriaBridge' },
   lothlorien:  { src:'lothlorien.js',      global:'Lothlorien'  },
   carasgaladhon: { src:'carasgaladhon.js', global:'CarasGaladhon'},
-  // bree:     { src:'bree.js',            global:'Bree'        },
+  argonath:    { src:'argonath.js',        global:'Argonath'    },
+  bree:        { src:'bree.js',            global:'Bree'        },
+  prancingponyinn: { src:'prancingponyinn.js', global:'PrancingPonyInn'},
   // shire:    { src:'shire.js',           global:'Shire'       },
   // moria:    { src:'moria.js',           global:'Moria'       },
 };
