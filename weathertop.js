@@ -80,7 +80,7 @@ const Weathertop = (() => {  // eslint-disable-line no-unused-vars
       {pos:{x:0,z:40}, radius:8,
         text:'"The Road wound away before them like a piece of string."',
         cite:'— The Fellowship of the Ring'},
-      {pos:{x:18,z:42}, radius:6,
+      {pos:{x:8,z:44}, radius:6,
         text:'"The East Road. Rivendell lay many days journey ahead — but the Road would take them there, if they had the courage to follow it."',
         cite:'— The Fellowship of the Ring'},
       {pos:{x:8,z:19}, radius:5,
@@ -98,7 +98,7 @@ const Weathertop = (() => {  // eslint-disable-line no-unused-vars
 
     arrivals: {
       bree:      { x:0,  z:60, yaw:0           },  // arriving from Bree to the south, facing hill
-      rivendell: { x:60, z:45, yaw:Math.PI*1.5 },  // arriving from Rivendell to the east, facing -X
+      rivendell: { x:40, z:45, yaw:Math.PI*1.5 },  // arriving from Rivendell to the east, facing -X
     },
 
     boundary: 85,
@@ -106,8 +106,8 @@ const Weathertop = (() => {  // eslint-disable-line no-unused-vars
     transitions:[
       // South → Bree along the Greenway
       { trigger:{x:0,  z:78, radius:8}, to:'bree'      },
-      // East → Rivendell along the East Road
-      { trigger:{x:78, z:45, radius:8}, to:'rivendell'  },
+      // East → Rivendell along the East Road — trigger before the moorland wall
+      { trigger:{x:48, z:45, radius:8}, to:'rivendell'  },
     ],
 
     // Called by engine after terrain mesh is built and groundY is live
@@ -285,35 +285,33 @@ const Weathertop = (() => {  // eslint-disable-line no-unused-vars
       roadNS.rotation.y=0.35; roadNS.position.set(55,0.05,0);
       roadNS.receiveShadow=true; scene.add(roadNS);
 
-      // East Road — branches east from near the player start toward Rivendell
-      // Runs along z≈45 heading in +X direction
-      const roadEW = new THREE.Mesh(new THREE.PlaneGeometry(4,200,1,1), roadMat);
+      // East Road — branches east from near the player start toward Rivendell.
+      // Length 90 centred at x:45 covers x:0..90, ending well past the trigger at x:48.
+      const roadEW = new THREE.Mesh(new THREE.PlaneGeometry(4, 90, 1, 1), roadMat);
       roadEW.rotateX(-Math.PI/2);
-      roadEW.rotation.y=Math.PI/2; // run east-west
-      roadEW.position.set(55,0.05,45); // starts near the N-S road junction
+      roadEW.rotation.y=Math.PI/2;
+      roadEW.position.set(45, 0.05, 45);
       roadEW.receiveShadow=true; scene.add(roadEW);
 
       // ── Milestone stone ────────────────────────────────────────────────────
       // A worn standing stone beside the East Road junction, hinting the player
       // to head east. Visible from the starting position.
       {
-        const msY = groundY(18, 42);
-        // Stone pillar — slightly leaning
+        // Milestone at x:8, z:44 — right beside the road, visible from z:45 start
+        const msY = groundY(8, 44);
         const ms = new THREE.Mesh(
           new THREE.CylinderGeometry(0.18, 0.24, 1.4, 7), STONE_DARK);
-        ms.position.set(18, msY + 0.6, 42);
+        ms.position.set(8, msY + 0.6, 44);
         ms.rotation.z = 0.08; ms.rotation.y = 0.5;
         ms.castShadow=true; scene.add(ms);
-        // Small cap stone on top
         const cap = new THREE.Mesh(
           new THREE.BoxGeometry(0.45, 0.18, 0.35), STONE_DARK);
-        cap.position.set(18, msY + 1.38, 42);
+        cap.position.set(8, msY + 1.38, 44);
         cap.rotation.y = 0.5;
         scene.add(cap);
-        // Fallen chunk at its base
         const chunk = new THREE.Mesh(
           new THREE.SphereGeometry(0.18, 8, 6), STONE_DARK);
-        chunk.position.set(17.4, msY + 0.1, 42.5);
+        chunk.position.set(7.4, msY + 0.1, 44.5);
         chunk.scale.y=0.55; scene.add(chunk);
       }
 
