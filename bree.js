@@ -164,9 +164,9 @@ const Bree = {
   start: { x: -10, z: 2, yaw: Math.PI * 1.5 }, // at west end, facing +X (east)
 
   arrivals: {
-    barrowdowns:    { x: -64, z:  2, yaw: Math.PI * 1.5 }, // from -X, facing +X
-    weathertop:     { x:  64, z:  2, yaw: Math.PI * 0.5 }, // from +X, facing -X
-    prancingponyinn:{ x:   4, z: 18, yaw: 0              }, // returning from inn, facing -Z (toward road)
+    barrowdowns:    { x: -50, z:  2, yaw: Math.PI * 1.5 }, // from -X, facing +X
+    weathertop:     { x:  50, z:  2, yaw: Math.PI * 0.5 }, // from +X, facing -X
+    prancingponyinn:{ x:   4, z: 12, yaw: Math.PI         }, // returning from inn, facing +Z (toward road)
   },
 
   // ─── Boundary & transitions ────────────────────────────────────────────────
@@ -174,16 +174,16 @@ const Bree = {
 
   transitions: [
     {
-      trigger: { x: -72, z: 2, radius: 6 },
+      trigger: { x: -78, z: 2, radius: 4 },   // edge at x:-74, arrival at x:-50 — clear gap
       to: 'barrowdowns',
     },
     {
-      trigger: { x: 72, z: 2, radius: 6 },
+      trigger: { x: 78, z: 2, radius: 4 },    // edge at x:+74, arrival at x:+50 — clear gap
       to: 'weathertop',
     },
     {
-      // Prancing Pony courtyard — entering from south side of yard
-      trigger: { x: 4, z: 8, radius: 7 },
+      // Prancing Pony — trigger at the inn door steps, deep inside courtyard
+      trigger: { x: 4, z: 16, radius: 3 },
       to: 'prancingponyinn',
     },
   ],

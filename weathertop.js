@@ -2,7 +2,7 @@
 // Amon Sûl · The Watchtower
 // Drop this file alongside world.html. The engine calls build() once on load.
 
-const Weathertop = (() => {
+const Weathertop = (() => {  // eslint-disable-line no-unused-vars
 
   // ── Terrain ────────────────────────────────────────────────────────────────
   const HILL_R=30, PLATEAU_R=13, HILL_H=22;
@@ -360,4 +360,5 @@ const Weathertop = (() => {
 })();
 
 // Expose for engine
+window.Weathertop = Weathertop;
 if(typeof module!=='undefined') module.exports=Weathertop;
