@@ -312,10 +312,10 @@ const MoriaBridge = {
     // West wall of chasm space at x=20 — has opening for passage.
     // Built as three panels: north of opening, south of opening, above opening.
     const cwPN=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,CAVN_H,(16-PASS_W/2)-0.5),matStone);
-    cwPN.position.set(20,CAVN_H/2,-16+(16-PASS_W/2)/2-0.25); scene.add(cwPN);
+    cwPN.position.set(19,CAVN_H/2,-16+(16-PASS_W/2)/2-0.25); scene.add(cwPN);
     const cwPS=cwPN.clone(); cwPS.position.z=-cwPN.position.z; scene.add(cwPS);
     const cwPA=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,CAVN_H-PASS_H,PASS_W),matStone);
-    cwPA.position.set(20,PASS_H+(CAVN_H-PASS_H)/2,0); scene.add(cwPA);
+    cwPA.position.set(19,PASS_H+(CAVN_H-PASS_H)/2,0); scene.add(cwPA);
 
     // Chasm-space torches — on west wall, flanking passage opening
     FX.makeTorch(20.2, 0, -10);
@@ -357,10 +357,10 @@ const MoriaBridge = {
     cC.position.set(74,CORR_H,19); scene.add(cC);
     const cF=new THREE.Mesh(new THREE.BoxGeometry(8,0.4,18),matStone);
     cF.position.set(74,-0.2,19); scene.add(cF);
-    [12,18,24].forEach(tz=>{
-      FX.makeTorch(71.2, 0, tz);
-      FX.makeTorch(76.8, 0, tz);
-    });
+    //[12,18,24].forEach(tz=>{
+    //  FX.makeTorch(71.2, 0, tz);
+    //  FX.makeTorch(76.8, 0, tz);
+    //});
 
     // ── Ante-room (x=68→80, z=28→42) ────────────────────────────────────────
     const antF=new THREE.Mesh(new THREE.BoxGeometry(12,0.4,14),matStone);
@@ -371,7 +371,7 @@ const MoriaBridge = {
     antWW.position.set(68,ANT_H/2,35); scene.add(antWW);
     const antWE=antWW.clone(); antWE.position.x=80; scene.add(antWE);
     // North wall of ante-room — doorway opening matches corridor width (8), centred x=74
-    const antNL=new THREE.Mesh(new THREE.BoxGeometry(2,ANT_H,WALL_T),matStone);
+    const antNL=new THREE.Mesh(new THREE.BoxGeometry(5,ANT_H,WALL_T),matStone);
     antNL.position.set(69,ANT_H/2,28); scene.add(antNL);
     const antNR=antNL.clone(); antNR.position.x=79; scene.add(antNR);
     const antNT=new THREE.Mesh(new THREE.BoxGeometry(8,ANT_H-CORR_H,WALL_T),matStone);
@@ -386,11 +386,11 @@ const MoriaBridge = {
     // Target: low on the corridor floor north of doorway (x=74, y=0, z=18)
     // This diagonal aim (high south → low north) mimics sunlight entering obliquely.
     const spotTarget = new THREE.Object3D();
-    spotTarget.position.set(74, 0, 18);
+    spotTarget.position.set(72, 0, 24);
     scene.add(spotTarget);
 
     const daylightSpot = new THREE.SpotLight(0xaaffcc, 5.0);
-    daylightSpot.position.set(74, 12, 40);
+    daylightSpot.position.set(74, 12, 30);
     daylightSpot.target = spotTarget;
     daylightSpot.angle = Math.PI * 0.13;     // narrow beam
     daylightSpot.penumbra = 0.35;            // soft edge
@@ -400,14 +400,14 @@ const MoriaBridge = {
     refs.daylightLight = daylightSpot;
 
     // Ambient fill inside ante-room so it reads as bright/exterior
-    const anteFill = new THREE.PointLight(0x88ffcc, 1.5, 18);
-    anteFill.position.set(74, 5, 36);
-    scene.add(anteFill);
+    //const anteFill = new THREE.PointLight(0x88ffcc, 1.5, 18);
+    //anteFill.position.set(74, 5, 36);
+    //scene.add(anteFill);
 
     // Floor pool at the base of the shaft — warm scatter where light hits ground
-    const floorPool = new THREE.PointLight(0xccffdd, 0.8, 10);
-    floorPool.position.set(74, 0.3, 20);
-    scene.add(floorPool);
+    //const floorPool = new THREE.PointLight(0xccffdd, 0.8, 10);
+    //floorPool.position.set(74, 0.3, 20);
+    //scene.add(floorPool);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BALROG FIRE — deep west, behind the hall
