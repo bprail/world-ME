@@ -301,7 +301,7 @@ const MoriaBridge = {
     // ═══════════════════════════════════════════════════════════════════════════
     const CAVN_H=30;
     // North cavern wall (x=20→68, 48 units long)
-    const CAVN_XC=44, CAVN_DX=48;
+    const CAVN_XC=44, CAVN_DX=52;
     const cvN=new THREE.Mesh(new THREE.BoxGeometry(CAVN_DX,CAVN_H,WALL_T),matStone);
     cvN.position.set(CAVN_XC,CAVN_H/2,-16); scene.add(cvN);
     const cvS=cvN.clone(); cvS.position.z=16; scene.add(cvS);
@@ -350,8 +350,8 @@ const MoriaBridge = {
     landC.position.set(74,LAND_H,4); scene.add(landC);
 
     // ── South corridor (x=70→78, z=10→28, centre z=19) ──────────────────────
-    const cWW=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,CORR_H,18),matStone);
-    cWW.position.set(70,CORR_H/2,19); scene.add(cWW);
+    const cWW=new THREE.Mesh(new THREE.BoxGeometry(WALL_T*2,CORR_H,18),matStone);
+    cWW.position.set(68,CORR_H/2,19); scene.add(cWW);
     const cWE=cWW.clone(); cWE.position.x=78; scene.add(cWE);
     const cC=new THREE.Mesh(new THREE.BoxGeometry(8,0.6,18),matStone);
     cC.position.set(74,CORR_H,19); scene.add(cC);
@@ -371,7 +371,7 @@ const MoriaBridge = {
     antWW.position.set(68,ANT_H/2,35); scene.add(antWW);
     const antWE=antWW.clone(); antWE.position.x=80; scene.add(antWE);
     // North wall of ante-room — doorway opening matches corridor width (8), centred x=74
-    const antNL=new THREE.Mesh(new THREE.BoxGeometry(5,ANT_H,WALL_T),matStone);
+    const antNL=new THREE.Mesh(new THREE.BoxGeometry(6,ANT_H,WALL_T),matStone);
     antNL.position.set(69,ANT_H/2,28); scene.add(antNL);
     const antNR=antNL.clone(); antNR.position.x=79; scene.add(antNR);
     const antNT=new THREE.Mesh(new THREE.BoxGeometry(8,ANT_H-CORR_H,WALL_T),matStone);
@@ -392,8 +392,8 @@ const MoriaBridge = {
     const daylightSpot = new THREE.SpotLight(0xaaffcc, 5.0);
     daylightSpot.position.set(74, 12, 30);
     daylightSpot.target = spotTarget;
-    daylightSpot.angle = Math.PI * 0.13;     // narrow beam
-    daylightSpot.penumbra = 0.35;            // soft edge
+    daylightSpot.angle = Math.PI * 0.06;     // narrow beam
+    daylightSpot.penumbra = 0.85;            // soft edge
     daylightSpot.distance = 50;
     daylightSpot.castShadow = false;
     scene.add(daylightSpot);
