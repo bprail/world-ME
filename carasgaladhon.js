@@ -132,19 +132,25 @@ const CarasGaladhon = {
   ],
 
   // ─── Walkables — great tree spiral steps + flet ────────────────────────────
-  walkables: [
-    // Great mallorn tree at (0, -8): spiral steps approximated as angled ramp segments
-    // Step 1 — south face, low
-    { x: 3,   z: -5,  yaw: 0.4,  length: 7, width: 2.2, yStart: 0.5, yEnd: 3.5 },
-    // Step 2 — east face
-    { x: 5,   z: -10, yaw: 1.0,  length: 7, width: 2.2, yStart: 3.5, yEnd: 6.5 },
-    // Step 3 — north face
-    { x: 2,   z: -14, yaw: 1.6,  length: 7, width: 2.2, yStart: 6.5, yEnd: 9.5 },
-    // Step 4 — west face
-    { x: -3,  z: -11, yaw: 2.2,  length: 7, width: 2.2, yStart: 9.5, yEnd: 12.5 },
-    // Top flet platform — flat
-    { x: 0,   z: -8,  yaw: 0,    length: 8, width: 8,   yStart: 13.0, yEnd: 13.0 },
-  ],
+  // yStart/yEnd are absolute world Y. hillHeight is called here (module-load
+  // time) to bake the terrain offset in — groundY is not available yet but
+  // hillHeight is on the same object and returns the same value.
+  get walkables() {
+    const gy = this.hillHeight(0, -8); // terrain Y at the great tree base
+    // Step heights relative to terrain, then shifted to absolute world Y:
+    //   step 1:  0.5 → 3.5   (rises  3 units)
+    //   step 2:  3.5 → 6.5   (rises  3 units)
+    //   step 3:  6.5 → 9.5   (rises  3 units)
+    //   step 4:  9.5 → 12.5  (rises  3 units)
+    //   flet:   13.0 flat     (matches top of step 4)
+    return [
+      { x:  3, z:  -5, yaw: 0.4, length: 7, width: 2.2, yStart: gy +  0.5, yEnd: gy +  3.5 },
+      { x:  5, z: -10, yaw: 1.0, length: 7, width: 2.2, yStart: gy +  3.5, yEnd: gy +  6.5 },
+      { x:  2, z: -14, yaw: 1.6, length: 7, width: 2.2, yStart: gy +  6.5, yEnd: gy +  9.5 },
+      { x: -3, z: -11, yaw: 2.2, length: 7, width: 2.2, yStart: gy +  9.5, yEnd: gy + 12.5 },
+      { x:  0, z:  -8, yaw: 0,   length: 8, width: 8,   yStart: gy + 13.0, yEnd: gy + 13.0 },
+    ];
+  },
 
   // ─── Barriers ──────────────────────────────────────────────────────────────
   barriers: [
@@ -179,7 +185,7 @@ const CarasGaladhon = {
   ],
 
   // ─── Build scene ───────────────────────────────────────────────────────────
-  buildScene(THREE, scene, groundY, MAT) {
+  buildScene(THREE, scene, groundY, MAT, FX) {
     const refs = {};
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -318,10 +324,41 @@ const CarasGaladhon = {
         addMesh(lGeo, matLamp, gx + Math.cos(ang) * r, canopyY - 4 + (i % 3) * 2, gz + Math.sin(ang) * r);
       }
 
-      // Animated light at flet level
-      refs.fletLight = new THREE.PointLight(0xffd080, 1.4, 30);
-      refs.fletLight.position.set(gx, fletY + 2, gz);
-      scene.add(refs.fletLight);
+      // Flet torches — four corners of the platform, FX-managed
+      const fletTorchOpts = { color: 0xffc050, intensity: 1.1, range: 12 };
+      for (let a = 0; a < 4; a++) {
+        const ang = (a / 4) * Math.PI * 2 + Math.PI * 0.25;
+        FX.makeTorch(
+          gx + Math.cos(ang) * 3.8,
+          fletY,
+          gz + Math.sin(ang) * 3.8,
+          fletTorchOpts
+        );
+      }
+    }
+
+    // ── Path torches — pairs flanking the main path ───────────────────────────
+    // One pair at each waypoint transition, set back ~2.5 units either side
+    {
+      const pathTorchOpts = { color: 0xffaa33, intensity: 0.85, range: 10 };
+      const pairs = [
+        // [path-centre-x, path-centre-z, side-offset-along-X]
+        [  0,  48,  2.5 ],   // entrance
+        [  0,  28,  2.5 ],
+        [ -8,  10,  2.5 ],
+        [-12, -10,  2.5 ],
+      ];
+      pairs.forEach(([px, pz, off]) => {
+        FX.makeTorch( px + off, groundY(px + off, pz), pz, pathTorchOpts);
+        FX.makeTorch( px - off, groundY(px - off, pz), pz, pathTorchOpts);
+      });
+    }
+
+    // ── City gate torches — tall pair flanking the +Z entrance ───────────────
+    {
+      const gateOpts = { color: 0xffb040, intensity: 1.3, range: 14 };
+      FX.makeTorch(  5, groundY( 5, 62), 62, gateOpts);
+      FX.makeTorch( -5, groundY(-5, 62), 62, gateOpts);
     }
 
     // ── Mirror of Galadriel glade ─────────────────────────────────────────────
@@ -342,10 +379,20 @@ const CarasGaladhon = {
       addMesh(waterGeo, matMirrorWater, mx, mgy + 1.72, mz);
       refs.mirrorWater = scene.children[scene.children.length - 1];
 
-      // Ambient glow at mirror
+      // Blue-white magical glow above the mirror — proximity-reactive, kept in refs
       refs.mirrorLight = new THREE.PointLight(0xa0c8e8, 1.6, 14);
       refs.mirrorLight.position.set(mx, mgy + 3, mz);
       scene.add(refs.mirrorLight);
+
+      // Glade torches — three silver-flame torches around the mirror pedestal;
+      // slightly cooler colour to evoke elven light rather than common fire
+      const gladeTorchOpts = { color: 0xc8d8ff, intensity: 0.75, range: 9 };
+      for (let i = 0; i < 3; i++) {
+        const ang = (i / 3) * Math.PI * 2 + Math.PI * 0.5;
+        const tx = mx + Math.cos(ang) * 3.5;
+        const tz = mz + Math.sin(ang) * 3.5;
+        FX.makeTorch(tx, groundY(tx, tz), tz, gladeTorchOpts);
+      }
 
       // Glade trees — ring of smaller mallorns framing the glade
       const gladeR = 12;
@@ -449,11 +496,6 @@ const CarasGaladhon = {
 
   // ─── onFrame ───────────────────────────────────────────────────────────────
   onFrame(t, dt, refs, playerPos) {
-    // Flet light — gentle warm pulse
-    if (refs.fletLight) {
-      refs.fletLight.intensity = 1.2 + Math.sin(t * 0.8) * 0.2;
-    }
-
     // Mirror light — slow cool shimmer
     if (refs.mirrorLight) {
       refs.mirrorLight.intensity = 1.4 + Math.sin(t * 1.3 + 1.2) * 0.4;
