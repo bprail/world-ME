@@ -16,8 +16,8 @@ const PrancingPonyInn = {
     fogNear:          12,
     fogFar:           45,
     skyColor:         0x0a0804,
-    ambientColor:     0x6a3c10,       // warm amber ambient — eyes adjusted to firelight
-    ambientIntensity: 2.2,
+    ambientColor:     0x4e2c0c,       // warm amber ambient — eyes adjusted to firelight
+    ambientIntensity: 1.8,
     moonColor:        0x7a4c18,       // interior bounce — no moon, simulate warm ceiling glow
     moonIntensity:    0.55,
     moonPosition:     { x: 0, y: 50, z: 0 },
@@ -182,19 +182,18 @@ const PrancingPonyInn = {
     addMesh(geoFrontWall, matStone, -8,  3.0, 16, 0, 0, 0);
     addMesh(geoFrontWall, matStone,  8,  3.0, 16, 0, 0, 0);
     // Door lintel
-    const geoLintel = new THREE.BoxGeometry(6, 1.2, 0.6);
+    const geoLintel = new THREE.BoxGeometry(7.5, 1.2, 0.6);
     addMesh(geoLintel, matTimber, 0, 5.2, 16, 0, 0, 0);
-    // Door frame posts
+    // Door frame posts — flush with wall inner face, just outside the gap edges
     const geoDPost = new THREE.CylinderGeometry(0.2, 0.22, 4.8, 9);
-    addMesh(geoDPost, matTimber, -2.8, 2.6, 16, 0, 0, 0);
-    addMesh(geoDPost, matTimber,  2.8, 2.6, 16, 0, 0, 0);
+    addMesh(geoDPost, matTimber, -3.6, 2.6, 15.7, 0, 0, 0);
+    addMesh(geoDPost, matTimber,  3.6, 2.6, 15.7, 0, 0, 0);
 
-    // Wainscoting panels on walls
+    // Wainscoting panels — back wall only, front wall skipped (player faces away from it)
     const geoWain = new THREE.BoxGeometry(3.8, 1.4, 0.15);
     for (let pi = 0; pi < 5; pi++) {
       const px = -10 + pi * 5;
       addMesh(geoWain, matWallPlank, px, 1.0, -16.7, 0, 0, 0);
-      addMesh(geoWain, matWallPlank, px, 1.0,  15.7, 0, 0, 0);
     }
     // East/west wainscoting
     const geoWainSide = new THREE.BoxGeometry(0.15, 1.4, 3.8);
@@ -377,7 +376,8 @@ const PrancingPonyInn = {
       [-12.6, -6,  3.5, false], // west wall
       [-12.6,  6,  3.5, false], // west wall
       [ 12.6, -6,  3.5, false], // east wall
-      [  0,  15.5, 3.5, false], // above door
+      [ -8,  15.5, 3.5, false], // beside door, left wall section
+      [  8,  15.5, 3.5, false], // beside door, right wall section
     ];
     for (const [tx, tz, ty, cs] of wallTorches) {
       FX.makeTorch(tx, groundY(tx, tz), tz, {
@@ -407,10 +407,10 @@ const PrancingPonyInn = {
     addMesh(geoAntler, matDarkWood,  1.5, 4.8, -16.7, 0, -0.4, -0.3);
     addMesh(geoAntler, matDarkWood,  0,   4.6, -16.7, 0, 0, 0);
 
-    // Cloaks on pegs near door
+    // Cloaks on pegs — on the solid wall section to the left of the door
     const geoCloakPeg = new THREE.BoxGeometry(0.12, 0.12, 0.4);
-    addMesh(geoCloakPeg, matTimber, -5, 3.5, 15.7, 0, 0, 0);
-    addMesh(geoCloakPeg, matTimber, -3, 3.5, 15.7, 0, 0, 0);
+    addMesh(geoCloakPeg, matTimber, -7, 1.8, 15.7, 0, 0, 0);
+    addMesh(geoCloakPeg, matTimber, -9, 1.8, 15.7, 0, 0, 0);
 
     return {};
   },
