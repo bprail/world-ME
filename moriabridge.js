@@ -300,8 +300,8 @@ const MoriaBridge = {
     // North and south walls run the full length including the ground strip x=20→28.
     // ═══════════════════════════════════════════════════════════════════════════
     const CAVN_H=30;
-    // North cavern wall (x=20→68, 48 units long)
-    const CAVN_XC=43.4, CAVN_DX=52;
+    // North cavern wall (x=20→72, 52 units long — reaches corridor west wall)
+    const CAVN_XC=46, CAVN_DX=52;
     const cvN=new THREE.Mesh(new THREE.BoxGeometry(CAVN_DX,CAVN_H,WALL_T),matStone);
     cvN.position.set(CAVN_XC,CAVN_H/2,-16); scene.add(cvN);
     const cvS=cvN.clone(); cvS.position.z=16; scene.add(cvS);
@@ -345,22 +345,27 @@ const MoriaBridge = {
     // East wall of landing
     const landE=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,LAND_H,12),matStone);
     landE.position.set(80,LAND_H/2,4); scene.add(landE);
-    // Ceiling
-    const landC=new THREE.Mesh(new THREE.BoxGeometry(12,0.8,12),matStone);
-    landC.position.set(74,LAND_H,4); scene.add(landC);
+    // Ceiling — sloped from CAVN_H at west (x=68) down to LAND_H at east (x=80)
+    {
+      const dx = 12, dy = LAND_H - CAVN_H;   // dy is negative (slopes down east)
+      const len = Math.sqrt(dx*dx + dy*dy);
+      const landCeil = new THREE.Mesh(new THREE.BoxGeometry(len, 0.8, 12), matStone);
+      landCeil.position.set(74, (CAVN_H + LAND_H) / 2, 4);
+      landCeil.rotation.z = Math.atan2(dy, dx);
+      scene.add(landCeil);
+    }
 
     // ── South corridor (x=70→78, z=10→28, centre z=19) ──────────────────────
-    const cWW=new THREE.Mesh(new THREE.BoxGeometry(WALL_T*2,CORR_H,18),matStone);
-    cWW.position.set(68,CORR_H/2,19); scene.add(cWW);
+    const cWW=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,CORR_H,18),matStone);
+    cWW.position.set(70,CORR_H/2,19); scene.add(cWW);
     const cWE=cWW.clone(); cWE.position.x=78; scene.add(cWE);
-    const cC=new THREE.Mesh(new THREE.BoxGeometry(8,0.6,18),matStone);
-    cC.position.set(74,CORR_H,19); scene.add(cC);
+    const corrCeilH = CAVN_H - (DOOR_H+0.5);
+    const corrCeilY = (DOOR_H+0.5 + CAVN_H) / 2;
+    const cC=new THREE.Mesh(new THREE.BoxGeometry(8,corrCeilH,18),matStone);
+    cC.position.set(74,corrCeilY,19); scene.add(cC);
     const cF=new THREE.Mesh(new THREE.BoxGeometry(8,0.4,18),matStone);
     cF.position.set(74,-0.2,19); scene.add(cF);
-    //[12,18,24].forEach(tz=>{
-    //  FX.makeTorch(71.2, 0, tz);
-    //  FX.makeTorch(76.8, 0, tz);
-    //});
+
 
     // ── Ante-room (x=68→80, z=28→42) ────────────────────────────────────────
     const antF=new THREE.Mesh(new THREE.BoxGeometry(12,0.4,14),matStone);
@@ -370,11 +375,16 @@ const MoriaBridge = {
     const antWW=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,ANT_H,14),matStone);
     antWW.position.set(68,ANT_H/2,35); scene.add(antWW);
     const antWE=antWW.clone(); antWE.position.x=80; scene.add(antWE);
-    // North wall of ante-room — doorway opening matches corridor width (8), centred x=74
-    const antNL=new THREE.Mesh(new THREE.BoxGeometry(6,ANT_H,WALL_T),matStone);
-    antNL.position.set(69,ANT_H/2,28); scene.add(antNL);
-    const antNR=antNL.clone(); antNR.position.x=77; scene.add(antNR);
-    const antNT=new THREE.Mesh(new THREE.BoxGeometry(8,ANT_H-CORR_H,WALL_T),matStone);
+    // North wall of ante-room — narrow 2-unit slit at centre (x=73→75)
+    // concentrates the light shaft so it doesn't spill into the chasm space.
+    // Left panel: x=68→73 (width=5, centre=70.5)
+    // Right panel: x=75→80 (width=5, centre=77.5)
+    const antNL=new THREE.Mesh(new THREE.BoxGeometry(5,ANT_H,WALL_T),matStone);
+    antNL.position.set(70.5,ANT_H/2,28); scene.add(antNL);
+    const antNR=new THREE.Mesh(new THREE.BoxGeometry(5,ANT_H,WALL_T),matStone);
+    antNR.position.set(77.5,ANT_H/2,28); scene.add(antNR);
+    // Transom above the slit opening
+    const antNT=new THREE.Mesh(new THREE.BoxGeometry(2,ANT_H-CORR_H,WALL_T),matStone);
     antNT.position.set(74,CORR_H+(ANT_H-CORR_H)/2,28); scene.add(antNT);
     // South far wall
     const antWS=new THREE.Mesh(new THREE.BoxGeometry(12,ANT_H,WALL_T),matStone);
@@ -386,28 +396,20 @@ const MoriaBridge = {
     // Target: low on the corridor floor north of doorway (x=74, y=0, z=18)
     // This diagonal aim (high south → low north) mimics sunlight entering obliquely.
     const spotTarget = new THREE.Object3D();
-    spotTarget.position.set(72, 2, 24);
+    spotTarget.position.set(74, 0, 18);
     scene.add(spotTarget);
 
-    const daylightSpot = new THREE.SpotLight(0xaaffcc, 18.0);
-    daylightSpot.position.set(74, 12, 30);
+    const daylightSpot = new THREE.SpotLight(0xfff5dd, 18.0);
+    daylightSpot.position.set(74, 12, 40);
     daylightSpot.target = spotTarget;
-    daylightSpot.angle = Math.PI * 0.06;     // narrow beam
-    daylightSpot.penumbra = 0.08;            // soft edge
-    daylightSpot.distance = 50;
+    daylightSpot.angle = Math.PI * 0.09;     // tight beam — hard shaft
+    daylightSpot.penumbra = 0.08;            // sharp edge, not diffuse
+    daylightSpot.distance = 55;
     daylightSpot.castShadow = false;
     scene.add(daylightSpot);
     refs.daylightLight = daylightSpot;
 
-    // Ambient fill inside ante-room so it reads as bright/exterior
-    //const anteFill = new THREE.PointLight(0x88ffcc, 1.5, 18);
-    //anteFill.position.set(74, 5, 36);
-    //scene.add(anteFill);
 
-    // Floor pool at the base of the shaft — warm scatter where light hits ground
-    //const floorPool = new THREE.PointLight(0xccffdd, 0.8, 10);
-    //floorPool.position.set(74, 0.3, 20);
-    //scene.add(floorPool);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BALROG FIRE — deep west, behind the hall
@@ -467,8 +469,7 @@ const MoriaBridge = {
       refs.staffTip.material.emissiveIntensity = 3.0 * (0.82 + 0.22*Math.sin(tt*2.1) + 0.08*Math.sin(tt*5.3));
     if (refs.staffTipLight)
       refs.staffTipLight.intensity = 0.75 + 0.28*Math.sin(tt*2.0);
-    if (refs.daylightLight)
-      refs.daylightLight.intensity = 3.0 + 0.3*Math.sin(tt*0.6);
+    // daylightLight is steady — sunlight doesn't flicker
   },
 
 };
