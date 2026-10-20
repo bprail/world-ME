@@ -527,17 +527,15 @@ const BarrowDowns = (function () {
       },
     ],
 
-    // Transition: walk east to the edge of the downs → Weathertop
+    // Transition: walk east out of the downs → Bree
     transitions: [
-      { trigger: { x: 0, z: -78, radius: 8 }, to: 'weathertop' },
+      { trigger: { x: 0, z: -78, radius: 8 }, to: 'bree' },
     ],
 
     // Arrival points — where the player spawns when coming FROM another location
     arrivals: {
-      // Coming from Weathertop heading back west: spawn facing the downs
-      weathertop: { x: 0, z: -60, yaw: Math.PI },
-      // Coming from Bree (future): same general entry point
-      bree:       { x: 0, z: -60, yaw: Math.PI },
+      // Coming from Bree heading west into the downs: spawn facing inward
+      bree: { x: 0, z: -60, yaw: Math.PI },
     },
 
     buildScene,

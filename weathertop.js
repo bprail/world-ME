@@ -80,6 +80,9 @@ const Weathertop = (() => {
       {pos:{x:0,z:40}, radius:8,
         text:'"The Road wound away before them like a piece of string."',
         cite:'— The Fellowship of the Ring'},
+      {pos:{x:18,z:42}, radius:6,
+        text:'"The East Road. Rivendell lay many days journey ahead — but the Road would take them there, if they had the courage to follow it."',
+        cite:'— The Fellowship of the Ring'},
       {pos:{x:8,z:19}, radius:5,
         text:'"Weathertop! We shall reach it by noon, if we go on. Shall we?"',
         cite:'— Aragorn, The Fellowship of the Ring'},
@@ -92,19 +95,23 @@ const Weathertop = (() => {
     ],
 
     start: { x:0, z:45, yaw:0 },
+
+    arrivals: {
+      bree:      { x:0,  z:60, yaw:0           },  // arriving from Bree to the south, facing hill
+      rivendell: { x:60, z:45, yaw:Math.PI*1.5 },  // arriving from Rivendell to the east, facing -X
+    },
+
     boundary: 85,
 
     transitions:[
-      // South boundary → Bree (future)
-      { trigger:{x:0,z:70,radius:8}, to:'barrowdowns'},
+      // South → Bree along the Greenway
+      { trigger:{x:0,  z:78, radius:8}, to:'bree'      },
+      // East → Rivendell along the East Road
+      { trigger:{x:78, z:45, radius:8}, to:'rivendell'  },
     ],
-    
-    arrivals: {
-      barrowdowns: { x:0, z:45, yaw:0 },  // arrive on the plain south of the hill
-    },
 
     // Called by engine after terrain mesh is built and groundY is live
-    buildScene(THREE, scene, groundY, MAT){
+    buildScene(THREE, scene, groundY, MAT, FX){
       const { STONE, STONE_DARK, STONE_MOSS } = MAT;
 
       function box(x,y,z,w,h,d,mat=STONE,ry=0){
@@ -269,26 +276,56 @@ const Weathertop = (() => {
         hm.rotation.y=Math.random()*Math.PI; scene.add(hm);
       }
 
-      // Road
-      const roadGeo=new THREE.PlaneGeometry(4,500,1,1);
-      roadGeo.rotateX(-Math.PI/2);
-      const road=new THREE.Mesh(roadGeo,new THREE.MeshLambertMaterial({color:0x161411}));
-      road.rotation.y=0.35; road.position.set(55,0.05,0); road.receiveShadow=true; scene.add(road);
+      // ── Road ───────────────────────────────────────────────────────────────
+      const roadMat = new THREE.MeshLambertMaterial({color:0x161411});
 
-      // ── Fire ───────────────────────────────────────────────────────────────
-      const fireBase=groundY(0,0)+0.12;
-      const fireLight=new THREE.PointLight(0xff6820,7.0,13,2);
-      fireLight.position.set(0,fireBase+1.0,0);
-      fireLight.castShadow=true; fireLight.shadow.mapSize.set(512,512); scene.add(fireLight);
-      const fireFill=new THREE.PointLight(0xff4400,0.5,18,2);
-      fireFill.position.set(0,fireBase+0.5,0); scene.add(fireFill);
+      // North-south section (the Greenway) — runs past the hill toward Bree
+      const roadNS = new THREE.Mesh(new THREE.PlaneGeometry(4,500,1,1), roadMat);
+      roadNS.rotateX(-Math.PI/2);
+      roadNS.rotation.y=0.35; roadNS.position.set(55,0.05,0);
+      roadNS.receiveShadow=true; scene.add(roadNS);
+
+      // East Road — branches east from near the player start toward Rivendell
+      // Runs along z≈45 heading in +X direction
+      const roadEW = new THREE.Mesh(new THREE.PlaneGeometry(4,200,1,1), roadMat);
+      roadEW.rotateX(-Math.PI/2);
+      roadEW.rotation.y=Math.PI/2; // run east-west
+      roadEW.position.set(55,0.05,45); // starts near the N-S road junction
+      roadEW.receiveShadow=true; scene.add(roadEW);
+
+      // ── Milestone stone ────────────────────────────────────────────────────
+      // A worn standing stone beside the East Road junction, hinting the player
+      // to head east. Visible from the starting position.
+      {
+        const msY = groundY(18, 42);
+        // Stone pillar — slightly leaning
+        const ms = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.18, 0.24, 1.4, 7), STONE_DARK);
+        ms.position.set(18, msY + 0.6, 42);
+        ms.rotation.z = 0.08; ms.rotation.y = 0.5;
+        ms.castShadow=true; scene.add(ms);
+        // Small cap stone on top
+        const cap = new THREE.Mesh(
+          new THREE.BoxGeometry(0.45, 0.18, 0.35), STONE_DARK);
+        cap.position.set(18, msY + 1.38, 42);
+        cap.rotation.y = 0.5;
+        scene.add(cap);
+        // Fallen chunk at its base
+        const chunk = new THREE.Mesh(
+          new THREE.SphereGeometry(0.18, 8, 6), STONE_DARK);
+        chunk.position.set(17.4, msY + 0.1, 42.5);
+        chunk.scale.y=0.55; scene.add(chunk);
+      }
+
+      // ── Fire — engine-managed via FX ──────────────────────────────────────
+      const fireBase = groundY(0,0) + 0.12;
 
       // Campfire stones
       [[0.0,0.55,0.18],[0.85,0.68,0.22],[1.9,0.56,0.15],[2.8,0.63,0.20],
        [3.9,0.48,0.25],[4.8,0.70,0.16],[5.6,0.58,0.21],[6.3,0.43,0.14]
       ].forEach(([a,r,sr])=>{
         const m=new THREE.Mesh(new THREE.SphereGeometry(sr,10,7),STONE);
-        m.position.set(Math.cos(a)*r,fireBase+sr*0.55,Math.sin(a)*r);
+        m.position.set(Math.cos(a)*r, fireBase+sr*0.55, Math.sin(a)*r);
         m.scale.y=0.7+Math.random()*0.3;
         m.rotation.set(Math.random()*0.4,Math.random()*Math.PI,Math.random()*0.4);
         scene.add(m);
@@ -298,79 +335,29 @@ const Weathertop = (() => {
       for(let i=0;i<2;i++){
         const l=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,1.0,6),
           new THREE.MeshLambertMaterial({color:0x2a1a0c}));
-        l.position.set(0,fireBase+0.14,0); l.rotation.z=Math.PI/2; l.rotation.y=i*Math.PI/2;
+        l.position.set(0, fireBase+0.14, 0);
+        l.rotation.z=Math.PI/2; l.rotation.y=i*Math.PI/2;
         scene.add(l);
       }
 
-      // Flame sprites
-      function makeFlameTexture(c1,c2){
-        const cv=document.createElement('canvas'); cv.width=cv.height=64;
-        const ctx=cv.getContext('2d');
-        const g=ctx.createRadialGradient(32,40,2,32,32,30);
-        g.addColorStop(0,c1); g.addColorStop(0.5,c2); g.addColorStop(1,'rgba(0,0,0,0)');
-        ctx.fillStyle=g; ctx.fillRect(0,0,64,64);
-        return new THREE.CanvasTexture(cv);
-      }
-      const flames=[];
-      [{tex:makeFlameTexture('rgba(255,240,180,0.95)','rgba(255,100,10,0.6)'),sz:1.1,speed:1.2,phase:0},
-       {tex:makeFlameTexture('rgba(255,160,30,0.85)','rgba(200,40,0,0.4)'),  sz:0.85,speed:0.9,phase:1},
-       {tex:makeFlameTexture('rgba(255,200,80,0.7)', 'rgba(180,60,0,0.2)'),  sz:1.3, speed:1.5,phase:2.1},
-      ].forEach(cfg=>{
-        const mat=new THREE.SpriteMaterial({map:cfg.tex,transparent:true,
-          blending:THREE.AdditiveBlending,depthWrite:false});
-        const sp=new THREE.Sprite(mat);
-        sp.position.set(0,fireBase+cfg.sz*0.5,0); sp.scale.set(cfg.sz,cfg.sz*1.6,1);
-        sp.userData.baseY=sp.position.y; scene.add(sp); flames.push({sprite:sp,mat,baseY:sp.position.y,...cfg});
+      // Campfire flame — single hero fire, shadow casting on
+      FX.makeFire(0, fireBase, 0, {
+        color:      0xff6820,
+        intensity:  7.0,
+        range:      13,
+        flameScale: 1.0,
+        emberCount: 120,
+        emberSize:  0.08,
+        castShadow: true,
       });
 
-      // Embers
-      const EC=120;
-      const eGeo=new THREE.BufferGeometry();
-      const ePOS=new Float32Array(EC*3), eVEL=[], eLIF=new Float32Array(EC);
-      function resetE(i){
-        const a=Math.random()*Math.PI*2,r=Math.random()*0.3;
-        ePOS[i*3]=Math.cos(a)*r; ePOS[i*3+1]=fireBase+0.4+Math.random()*0.3;
-        ePOS[i*3+2]=Math.sin(a)*r;
-        eVEL[i]=new THREE.Vector3((Math.random()-0.5)*0.5,1.2+Math.random()*1.8,(Math.random()-0.5)*0.5);
-        eLIF[i]=Math.random();
-      }
-      for(let i=0;i<EC;i++) resetE(i);
-      eGeo.setAttribute('position',new THREE.BufferAttribute(ePOS,3));
-      const eMat=new THREE.PointsMaterial({color:0xffaa22,size:0.08,transparent:true,
-        opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true});
-      scene.add(new THREE.Points(eGeo,eMat));
-
-      return { fireLight, fireFill, flames, embers:{EC,eGeo,ePOS,eVEL,eLIF,resetE} };
+      return {};
     },
 
-    // Per-frame animation — called by engine game loop
-    onFrame(t, dt, refs){
-      const {fireLight,fireFill,flames,embers:{EC,eGeo,ePOS,eVEL,eLIF,resetE}}=refs;
-      const fl=0.85+Math.sin(t*7.3)*0.08+Math.sin(t*13.1)*0.05+Math.sin(t*3.7)*0.04;
-      fireLight.intensity=7.0*fl;
-      fireLight.color.setHSL(0.06+Math.sin(t*4)*0.01,1,0.52+Math.sin(t*9)*0.04);
-      fireFill.intensity=0.5*fl;
-      flames.forEach(f=>{
-        const s=f.sz*(0.88+Math.sin(t*f.speed*5+f.phase)*0.12);
-        f.sprite.scale.set(s,s*(1.5+Math.sin(t*f.speed*3+f.phase+1)*0.2),1);
-        
-          // fireBase embedded in sprite — just animate the Y offset
-          (f.sprite.position.y - f.sz*0.5);
-        f.mat.opacity=0.75+Math.sin(t*f.speed*6+f.phase)*0.2;
-      });
-      for(let i=0;i<EC;i++){
-        eLIF[i]+=dt*0.4;
-        if(eLIF[i]>1){resetE(i);continue;}
-        ePOS[i*3]  +=eVEL[i].x*dt*(1-eLIF[i]*0.6);
-        ePOS[i*3+1]+=eVEL[i].y*dt*(1-eLIF[i]*0.5);
-        ePOS[i*3+2]+=eVEL[i].z*dt*(1-eLIF[i]*0.6);
-        ePOS[i*3]  +=Math.sin(t*0.8+i*0.3)*0.01;
-      }
-      eGeo.attributes.position.needsUpdate=true;
-    },
+    // onFrame — fire animation is now engine-managed via FX
+    onFrame(t, dt, refs, playerPos){},
   };
 })();
 
 // Expose for engine
 if(typeof module!=='undefined') module.exports=Weathertop;
-window.Weathertop=Weathertop;
