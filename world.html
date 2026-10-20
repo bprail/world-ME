@@ -403,7 +403,7 @@ function buildFX(){
     // Point light
     const light = new THREE.PointLight(col, intensity, range, 2);
     light.position.set(wx, fireBase+1.0, wz);
-    light.castShadow=true; light.shadow.mapSize.set(512,512);
+    light.castShadow=false; light.shadow.mapSize.set(512,512);
     scene.add(light);
 
     // Fill light — wider, dimmer, no shadow
