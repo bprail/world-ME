@@ -16,17 +16,19 @@ const PrancingPonyInn = {
     fogNear:          12,
     fogFar:           45,
     skyColor:         0x0a0804,
-    ambientColor:     0x1a1008,
-    ambientIntensity: 1.2,
-    moonColor:        0x4a3010,       // very dim — interior, no moon
-    moonIntensity:    0.08,
+    ambientColor:     0x6a3c10,       // warm amber ambient — eyes adjusted to firelight
+    ambientIntensity: 2.2,
+    moonColor:        0x7a4c18,       // interior bounce — no moon, simulate warm ceiling glow
+    moonIntensity:    0.55,
     moonPosition:     { x: 0, y: 50, z: 0 },
     showStars:        false,
     extraLights: [
-      // Warm fill from hearth side
-      { color: 0x6a3808, intensity: 0.5, x: -8, y: 4, z: -4 },
-      // Cool secondary from exterior cracks / window
-      { color: 0x181c20, intensity: 0.2, x: 0, y: 12, z: 6 },
+      // Strong warm fill from hearth side
+      { color: 0x9a5518, intensity: 1.2, x: -8, y: 4, z: -4 },
+      // Warm overhead fill — candles and torches bouncing off low ceiling
+      { color: 0x6a3c10, intensity: 0.8, x: 0, y: 8, z: 0 },
+      // Very faint cool from windows — rain-light leak
+      { color: 0x202830, intensity: 0.3, x: 0, y: 6, z: 8 },
     ],
   },
 
@@ -259,26 +261,26 @@ const PrancingPonyInn = {
     // TRESTLE TABLES AND BENCHES — filling the common room
     // ══════════════════════════════════════════════════════════════════════════
     const geoTable  = new THREE.BoxGeometry(4.5, 0.2, 1.8);
-    const geoTableL = new THREE.CylinderGeometry(0.12, 0.14, 2.0, 9);  // leg
-    const geoBench  = new THREE.BoxGeometry(4.5, 0.18, 0.7);
-    const geoBenchL = new THREE.CylinderGeometry(0.09, 0.1, 1.5, 9);
+    const geoTableL = new THREE.CylinderGeometry(0.12, 0.14, 0.7, 9);  // leg — 0.75 table height
+    const geoBench  = new THREE.BoxGeometry(4.5, 0.15, 0.7);
+    const geoBenchL = new THREE.CylinderGeometry(0.09, 0.1, 0.42, 9);  // bench leg — 0.45 seat height
 
     function buildTrestle(tx, tz, ty) {
       const tgy = groundY(tx, tz) + ty;
-      // Table
-      addMesh(geoTable, matTable, tx, tgy + 2.0, tz, 0, 0, 0);
+      // Table top at 0.75
+      addMesh(geoTable, matTable, tx, tgy + 0.75, tz, 0, 0, 0);
       // Four legs
-      addMesh(geoTableL, matDarkWood, tx - 1.8, tgy + 1.1, tz - 0.6, 0, 0, 0);
-      addMesh(geoTableL, matDarkWood, tx + 1.8, tgy + 1.1, tz - 0.6, 0, 0, 0);
-      addMesh(geoTableL, matDarkWood, tx - 1.8, tgy + 1.1, tz + 0.6, 0, 0, 0);
-      addMesh(geoTableL, matDarkWood, tx + 1.8, tgy + 1.1, tz + 0.6, 0, 0, 0);
-      // Benches each side
-      addMesh(geoBench, matBench, tx, tgy + 1.5, tz - 1.4, 0, 0, 0);
-      addMesh(geoBench, matBench, tx, tgy + 1.5, tz + 1.4, 0, 0, 0);
-      addMesh(geoBenchL, matDarkWood, tx - 1.8, tgy + 0.85, tz - 1.4, 0, 0, 0);
-      addMesh(geoBenchL, matDarkWood, tx + 1.8, tgy + 0.85, tz - 1.4, 0, 0, 0);
-      addMesh(geoBenchL, matDarkWood, tx - 1.8, tgy + 0.85, tz + 1.4, 0, 0, 0);
-      addMesh(geoBenchL, matDarkWood, tx + 1.8, tgy + 0.85, tz + 1.4, 0, 0, 0);
+      addMesh(geoTableL, matDarkWood, tx - 1.8, tgy + 0.37, tz - 0.6, 0, 0, 0);
+      addMesh(geoTableL, matDarkWood, tx + 1.8, tgy + 0.37, tz - 0.6, 0, 0, 0);
+      addMesh(geoTableL, matDarkWood, tx - 1.8, tgy + 0.37, tz + 0.6, 0, 0, 0);
+      addMesh(geoTableL, matDarkWood, tx + 1.8, tgy + 0.37, tz + 0.6, 0, 0, 0);
+      // Benches each side — seat at 0.45
+      addMesh(geoBench, matBench, tx, tgy + 0.45, tz - 1.4, 0, 0, 0);
+      addMesh(geoBench, matBench, tx, tgy + 0.45, tz + 1.4, 0, 0, 0);
+      addMesh(geoBenchL, matDarkWood, tx - 1.8, tgy + 0.23, tz - 1.4, 0, 0, 0);
+      addMesh(geoBenchL, matDarkWood, tx + 1.8, tgy + 0.23, tz - 1.4, 0, 0, 0);
+      addMesh(geoBenchL, matDarkWood, tx - 1.8, tgy + 0.23, tz + 1.4, 0, 0, 0);
+      addMesh(geoBenchL, matDarkWood, tx + 1.8, tgy + 0.23, tz + 1.4, 0, 0, 0);
     }
 
     // Main room tables
@@ -293,12 +295,12 @@ const PrancingPonyInn = {
     const tableCandles = [[3,-2],[3,5],[3,-9],[3,-14]];
     for (const [cx, cz] of tableCandles) {
       const cgy = groundY(cx, cz);
-      addMesh(geoCandleStick, matCandle, cx, cgy + 2.3, cz, 0, 0, 0);
+      addMesh(geoCandleStick, matCandle, cx, cgy + 1.05, cz, 0, 0, 0);
       // tiny glow sphere at tip
       addMesh(geoCandleFlame, new THREE.MeshLambertMaterial({
         color: 0xffe070, emissive: 0xffc030, emissiveIntensity: 1.2,
-      }), cx, cgy + 2.65, cz, 0, 0, 0);
-      FX.makeFire(cx, cgy + 2.6, cz, {
+      }), cx, cgy + 1.38, cz, 0, 0, 0);
+      FX.makeFire(cx, cgy + 1.35, cz, {
         color: 0xffe040, intensity: 0.5, range: 4, flameScale: 0.18,
         emberCount: 8, emberSize: 0.04, castShadow: false,
       });
@@ -311,18 +313,18 @@ const PrancingPonyInn = {
     const striderZ = -13;
     const sGY = groundY(striderX, striderZ);
 
-    // Corner settle (high-backed bench)
+    // Corner settle (high-backed bench) — back panel rises from floor
     const geoSettle = new THREE.BoxGeometry(4, 3.8, 0.6);
-    addMesh(geoSettle, matDarkWood, striderX, sGY + 2.0, striderZ - 0.3, 0, 0, 0);
-    // Bench seat
-    addMesh(geoBench, matBench, striderX, sGY + 1.4, striderZ + 1.2, 0, 0, 0);
-    // Small corner table
+    addMesh(geoSettle, matDarkWood, striderX, sGY + 1.9, striderZ - 0.3, 0, 0, 0);
+    // Bench seat at 0.45
+    addMesh(geoBench, matBench, striderX, sGY + 0.45, striderZ + 1.2, 0, 0, 0);
+    // Small corner table at 0.75
     const geoSmTable = new THREE.BoxGeometry(2.5, 0.18, 2.0);
-    addMesh(geoSmTable, matTable, striderX, sGY + 2.0, striderZ + 1.5, 0, 0, 0);
+    addMesh(geoSmTable, matTable, striderX, sGY + 0.75, striderZ + 1.5, 0, 0, 0);
     // Two mugs on the table
     const geoMug = new THREE.CylinderGeometry(0.18, 0.16, 0.4, 9);
-    addMesh(geoMug, matMugClay, striderX - 0.4, sGY + 2.28, striderZ + 1.2, 0, 0, 0);
-    addMesh(geoMug, matMugClay, striderX + 0.4, sGY + 2.28, striderZ + 1.8, 0, 0, 0);
+    addMesh(geoMug, matMugClay, striderX - 0.4, sGY + 1.0, striderZ + 1.2, 0, 0, 0);
+    addMesh(geoMug, matMugClay, striderX + 0.4, sGY + 1.0, striderZ + 1.8, 0, 0, 0);
 
     // Strider figure (simplified: cloaked shape)
     const geoCloak = new THREE.CylinderGeometry(0.4, 0.6, 2.2, 9);
