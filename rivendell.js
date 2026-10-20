@@ -95,7 +95,36 @@ const Rivendell = {
     const shelf = sm * sm * (3 - 2 * sm);   // smoothstep
 
     const SHELF_Y = -27;
-    return raw + (SHELF_Y - raw) * shelf;
+    const withShelf = raw + (SHELF_Y - raw) * shelf;
+
+    // --- Eregion ramp (south wall, z=0..44, x=8..28) ---
+    // Clips the steep south valley wall to a gentle grade so the player
+    // can walk up to the Eregion transition. rampY(x) defines the ceiling.
+    // A path notch (1.8 units deep, 2.2 units wide) winds diagonally up
+    // the slope, making the route readable from across the valley.
+    const rzFac = Math.max(0, Math.min(1, z / 4))
+                * Math.max(0, Math.min(1, (44 - z) / 4));
+    const rxFac = Math.max(0, Math.min(1, (x - 8) / 3))
+                * Math.max(0, Math.min(1, (28 - x) / 3));
+    const rRaw  = rzFac * rxFac;
+    const rMask = rRaw * rRaw * (3 - 2 * rRaw);
+
+    if (rMask > 0) {
+      const rampCeil  = -38 + Math.max(0, Math.min(20, x - 7)) * 0.55;
+      const clipped   = Math.min(withShelf, rampCeil);
+      const withRamp  = withShelf + (clipped - withShelf) * rMask;
+
+      // Path notch: S-curve from (x≈8,z=2) to (x≈23,z=40)
+      const pt = Math.max(0, Math.min(1, (z - 2) / 38));
+      const pathCx = 7 + pt * 16 + Math.sin(pt * Math.PI) * 1.8;
+      const pDist  = Math.abs(x - pathCx);
+      const pN     = Math.max(0, 1 - pDist / 2.2);
+      const notch  = pN * pN * (3 - 2 * pN) * 1.8 * rMask;
+
+      return withRamp - notch;
+    }
+
+    return withShelf;
   },
 
   vertexColor(vx, vy, vz, noise2d, lerp) {
@@ -132,6 +161,19 @@ const Rivendell = {
     r = lerp(r, 0.16, streamProx * 0.55);
     g = lerp(g, 0.19, streamProx * 0.55);
     b = lerp(b, 0.12, streamProx * 0.55);
+
+    // Eregion path: packed-earth tone on the ramp notch
+    if (vz > 2 && vz < 42 && vx > 7 && vx < 28) {
+      const pt2   = Math.max(0, Math.min(1, (vz - 2) / 38));
+      const pCx2  = 7 + pt2 * 16 + Math.sin(pt2 * Math.PI) * 1.8;
+      const pD2   = Math.abs(vx - pCx2);
+      const pFac2 = Math.max(0, 1 - pD2 / 2.5);
+      const earth = pFac2 * pFac2 * 0.55;
+      r = lerp(r, 0.52, earth);
+      g = lerp(g, 0.42, earth);
+      b = lerp(b, 0.28, earth);
+    }
+
     return [r, g, b];
   },
 
@@ -191,8 +233,14 @@ const Rivendell = {
   ],
 
   boundary: 150,
-  transitions: [{ trigger: { x: 20, z: 108, radius: 14 }, to: 'Weathertop' }],
-  arrivals:    { 'Weathertop': { x: 20, z: 92, yaw: 0 } },
+  transitions: [
+    { trigger: { x: 20, z: 108, radius: 14 }, to: 'Weathertop' },
+    { trigger: { x: 24, z: 32,  radius: 10 }, to: 'eregion'    },
+  ],
+  arrivals: {
+    'Weathertop': { x: 20, z: 92, yaw: 0          },
+    'eregion':    { x: 20, z: 28, yaw: Math.PI * 0.5 },
+  },
 
   walkables: [
     { x: -1.5, z: 0, yaw: Math.PI/2, length: 3.5, width: 3.2, yStart: -38.0, yEnd: -35.5 },
@@ -504,6 +552,49 @@ const Rivendell = {
       scene.add(tr);
       const can=new THREE.Mesh(new THREE.SphereGeometry(cr,8,6),lm);
       can.position.set(tx, SY+h*0.8+cr*0.45, tz);
+      scene.add(can);
+      refs.foliage.push(can);
+    });
+
+    // =====================================================
+    //  EREGION RAMP — waymarker stones and slope trees
+    //  Stones mark the route up the south slope and signal
+    //  the Eregion exit at the top of the ramp.
+    //  A few autumn trees provide visual depth on the slope.
+    // =====================================================
+
+    // Path waymarker stones — line the notch as it climbs
+    [
+      [10, 10, 1.6], [12, 14, 1.4], [14, 18, 1.8],
+      [16, 22, 1.5], [18, 26, 2.0], [20, 30, 1.7],
+      [22, 34, 2.2], [21, 38, 1.9],
+    ].forEach(([sx, sz, sh]) => {
+      const sm = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.30, sh, 7), matMoss);
+      sm.position.set(sx, groundY(sx, sz) + sh/2 - sh*0.2, sz);
+      scene.add(sm);
+    });
+
+    // Top-of-ramp marker — two taller stones flanking the exit col
+    [[23, 32, 3.0], [21, 33, 2.8]].forEach(([sx, sz, sh]) => {
+      const sm = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.42, sh, 9), matDark);
+      sm.position.set(sx, groundY(sx, sz) + sh/2 - sh*0.2, sz);
+      scene.add(sm);
+    });
+
+    // Slope trees — autumn canopy visible from valley floor
+    [
+      [12, 8,  matAmber], [14, 14, matGold],
+      [16, 20, matRust],  [18, 26, matAmber],
+      [20, 14, matCopper],[22, 20, matGold],
+    ].forEach(([tx, tz, lm], i) => {
+      const gy = groundY(tx, tz);
+      const h  = 4.8 + (i % 3) * 1.1;
+      const cr = 2.4 + (i % 2) * 0.6;
+      const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.32, h, 9), matWood);
+      tr.position.set(tx, gy + h/2 - h*0.25, tz);
+      scene.add(tr);
+      const can = new THREE.Mesh(new THREE.SphereGeometry(cr, 8, 6), lm);
+      can.position.set(tx, gy + h*0.82 + cr*0.4, tz);
       scene.add(can);
       refs.foliage.push(can);
     });
