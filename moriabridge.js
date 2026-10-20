@@ -301,7 +301,7 @@ const MoriaBridge = {
     // ═══════════════════════════════════════════════════════════════════════════
     const CAVN_H=30;
     // North cavern wall (x=20→68, 48 units long)
-    const CAVN_XC=43.5, CAVN_DX=52;
+    const CAVN_XC=43.4, CAVN_DX=52;
     const cvN=new THREE.Mesh(new THREE.BoxGeometry(CAVN_DX,CAVN_H,WALL_T),matStone);
     cvN.position.set(CAVN_XC,CAVN_H/2,-16); scene.add(cvN);
     const cvS=cvN.clone(); cvS.position.z=16; scene.add(cvS);
@@ -373,7 +373,7 @@ const MoriaBridge = {
     // North wall of ante-room — doorway opening matches corridor width (8), centred x=74
     const antNL=new THREE.Mesh(new THREE.BoxGeometry(6,ANT_H,WALL_T),matStone);
     antNL.position.set(69,ANT_H/2,28); scene.add(antNL);
-    const antNR=antNL.clone(); antNR.position.x=79; scene.add(antNR);
+    const antNR=antNL.clone(); antNR.position.x=77; scene.add(antNR);
     const antNT=new THREE.Mesh(new THREE.BoxGeometry(8,ANT_H-CORR_H,WALL_T),matStone);
     antNT.position.set(74,CORR_H+(ANT_H-CORR_H)/2,28); scene.add(antNT);
     // South far wall
@@ -386,7 +386,7 @@ const MoriaBridge = {
     // Target: low on the corridor floor north of doorway (x=74, y=0, z=18)
     // This diagonal aim (high south → low north) mimics sunlight entering obliquely.
     const spotTarget = new THREE.Object3D();
-    spotTarget.position.set(72, 0, 24);
+    spotTarget.position.set(72, 2, 24);
     scene.add(spotTarget);
 
     const daylightSpot = new THREE.SpotLight(0xaaffcc, 18.0);
