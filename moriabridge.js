@@ -64,7 +64,7 @@ const MoriaBridge = {
     { pos:{x:70,z:2}, radius:6,
       text:'"Fly, you fools!" he cried, and was gone. The bridge cracked and fell. In the fire and the smoke Gandalf fell, and the shadow went down into darkness.',
       cite:'— J.R.R. Tolkien, The Fellowship of the Ring' },
-    { pos:{x:74,z:22}, radius:6,
+    { pos:{x:75,z:22}, radius:6,
       text:'"They stood at last on the eastern side of the Misty Mountains, and Aragorn said nothing, for he wept."',
       cite:'— J.R.R. Tolkien, The Fellowship of the Ring' },
   ],
@@ -74,14 +74,14 @@ const MoriaBridge = {
 
   arrivals: {
     moriadoors: { x: -55, z: 0, yaw: Math.PI * 1.5 },   // deep in hall, face east
-    lothlorien: { x:  74, z: 15, yaw: 0 },   // corridor, face north into the scene (light behind)
+    lothlorien: { x:  75, z: 15, yaw: 0 },   // corridor, face north into the scene (light behind)
   },
 
   boundary: 120,
 
   transitions: [
     { trigger: { x: -70, z:  0, radius: 7 }, to: 'moriadoors' },
-    { trigger: { x:  74, z: 26, radius: 4 }, to: 'lothlorien' },
+    { trigger: { x:  75, z: 26, radius: 4 }, to: 'lothlorien' },
   ],
 
   // Only the elevated bridge needs walkables — everything else is ground-level terrain.
@@ -355,17 +355,17 @@ const MoriaBridge = {
       scene.add(landCeil);
     }
 
-    // ── South corridor (x=70→78, z=10→28, centre z=19) ──────────────────────
+    // ── South corridor (x=72→78, width=6, centre=75, z=10→28, centre z=19) ──
+    const CORR_XW=72, CORR_XE=78, CORR_XC=75, CORR_W=6;
     const cWW=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,CORR_H,18),matStone);
-    cWW.position.set(70,CORR_H/2,19); scene.add(cWW);
-    const cWE=cWW.clone(); cWE.position.x=78; scene.add(cWE);
+    cWW.position.set(CORR_XW,CORR_H/2,19); scene.add(cWW);
+    const cWE=cWW.clone(); cWE.position.x=CORR_XE; scene.add(cWE);
     const corrCeilH = CAVN_H - (DOOR_H+0.5);
     const corrCeilY = (DOOR_H+0.5 + CAVN_H) / 2;
-    const cC=new THREE.Mesh(new THREE.BoxGeometry(8,corrCeilH,18),matStone);
-    cC.position.set(74,corrCeilY,19); scene.add(cC);
-    const cF=new THREE.Mesh(new THREE.BoxGeometry(8,0.4,18),matStone);
-    cF.position.set(74,-0.2,19); scene.add(cF);
-
+    const cC=new THREE.Mesh(new THREE.BoxGeometry(CORR_W,corrCeilH,18),matStone);
+    cC.position.set(CORR_XC,corrCeilY,19); scene.add(cC);
+    const cF=new THREE.Mesh(new THREE.BoxGeometry(CORR_W,0.4,18),matStone);
+    cF.position.set(CORR_XC,-0.2,19); scene.add(cF);
 
     // ── Ante-room (x=68→80, z=28→42) ────────────────────────────────────────
     const antF=new THREE.Mesh(new THREE.BoxGeometry(12,0.4,14),matStone);
@@ -375,17 +375,16 @@ const MoriaBridge = {
     const antWW=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,ANT_H,14),matStone);
     antWW.position.set(68,ANT_H/2,35); scene.add(antWW);
     const antWE=antWW.clone(); antWE.position.x=80; scene.add(antWE);
-    // North wall of ante-room — narrow 2-unit slit at centre (x=73→75)
-    // concentrates the light shaft so it doesn't spill into the chasm space.
-    // Left panel: x=68→73 (width=5, centre=70.5)
-    // Right panel: x=75→80 (width=5, centre=77.5)
-    const antNL=new THREE.Mesh(new THREE.BoxGeometry(5,ANT_H,WALL_T),matStone);
-    antNL.position.set(70.5,ANT_H/2,28); scene.add(antNL);
-    const antNR=new THREE.Mesh(new THREE.BoxGeometry(5,ANT_H,WALL_T),matStone);
-    antNR.position.set(77.5,ANT_H/2,28); scene.add(antNR);
-    // Transom above the slit opening
+    // North wall of ante-room — narrow 2-unit slit aligned with corridor (x=74→76)
+    // Left panel: x=68→74 (width=6, centre=71)
+    // Right panel: x=76→80 (width=4, centre=78)
+    const antNL=new THREE.Mesh(new THREE.BoxGeometry(6,ANT_H,WALL_T),matStone);
+    antNL.position.set(71,ANT_H/2,28); scene.add(antNL);
+    const antNR=new THREE.Mesh(new THREE.BoxGeometry(4,ANT_H,WALL_T),matStone);
+    antNR.position.set(78,ANT_H/2,28); scene.add(antNR);
+    // Transom above the slit
     const antNT=new THREE.Mesh(new THREE.BoxGeometry(2,ANT_H-CORR_H,WALL_T),matStone);
-    antNT.position.set(74,CORR_H+(ANT_H-CORR_H)/2,28); scene.add(antNT);
+    antNT.position.set(75,CORR_H+(ANT_H-CORR_H)/2,28); scene.add(antNT);
     // South far wall
     const antWS=new THREE.Mesh(new THREE.BoxGeometry(12,ANT_H,WALL_T),matStone);
     antWS.position.set(74,ANT_H/2,42); scene.add(antWS);
@@ -396,11 +395,11 @@ const MoriaBridge = {
     // Target: low on the corridor floor north of doorway (x=74, y=0, z=18)
     // This diagonal aim (high south → low north) mimics sunlight entering obliquely.
     const spotTarget = new THREE.Object3D();
-    spotTarget.position.set(74, 0, 18);
+    spotTarget.position.set(72, 0, 24);
     scene.add(spotTarget);
 
     const daylightSpot = new THREE.SpotLight(0xfff5dd, 18.0);
-    daylightSpot.position.set(74, 12, 40);
+    daylightSpot.position.set(79, 12, 32);
     daylightSpot.target = spotTarget;
     daylightSpot.angle = Math.PI * 0.09;     // tight beam — hard shaft
     daylightSpot.penumbra = 0.08;            // sharp edge, not diffuse
@@ -408,6 +407,60 @@ const MoriaBridge = {
     daylightSpot.castShadow = false;
     scene.add(daylightSpot);
     refs.daylightLight = daylightSpot;
+
+    // ── Dust shaft — semi-transparent additive cone along the light vector ────
+    // Source (79,12,32) → target (72,0,24). CylinderGeometry tapers from wide
+    // at source end to narrow at target (like a real light cone widening from source).
+    {
+      const sx=79, sy=12, sz=32, tx=72, ty=0, tz=24;
+      const dx=tx-sx, dy=ty-sy, dz=tz-sz;
+      const len = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      const midX=(sx+tx)/2, midY=(sy+ty)/2, midZ=(sz+tz)/2;
+
+      const dustMat = new THREE.MeshStandardMaterial({
+        color:     0xfff8e0,
+        emissive:  0xfff0c0,
+        emissiveIntensity: 0.18,
+        transparent: true,
+        opacity:   0.055,
+        blending:  THREE.AdditiveBlending,
+        depthWrite: false,
+        side:      THREE.DoubleSide,
+      });
+
+      // Main shaft cone — wide at source, narrow at floor
+      const shaft = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.3, 1.2, len, 10, 1, true),
+        dustMat
+      );
+      shaft.position.set(midX, midY, midZ);
+
+      // Rotate cylinder (which points along Y by default) to align with the shaft vector
+      // Use a quaternion to rotate from +Y to the shaft direction
+      const dir = new THREE.Vector3(dx, dy, dz).normalize();
+      const up  = new THREE.Vector3(0, 1, 0);
+      const quat = new THREE.Quaternion().setFromUnitVectors(up, dir);
+      shaft.quaternion.copy(quat);
+      scene.add(shaft);
+
+      // A wider, more diffuse outer haze around the shaft
+      const haze = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.6, 2.2, len, 10, 1, true),
+        new THREE.MeshStandardMaterial({
+          color:      0xfff0c0,
+          emissive:   0xffe8a0,
+          emissiveIntensity: 0.08,
+          transparent: true,
+          opacity:    0.025,
+          blending:   THREE.AdditiveBlending,
+          depthWrite: false,
+          side:       THREE.DoubleSide,
+        })
+      );
+      haze.position.copy(shaft.position);
+      haze.quaternion.copy(quat);
+      scene.add(haze);
+    }
 
 
 
