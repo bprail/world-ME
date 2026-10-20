@@ -241,14 +241,7 @@ const MoriaBridge = {
     const CHASM_X0=28, CHASM_X1=68, CHASM_DX=CHASM_X1-CHASM_X0;
     const CHASM_DROP = -28;   // terrain bottom of chasm (matches hillHeight minimum)
 
-    // Thin void side walls — just enough to seal terrain mesh edges (3 units wide)
-    // Inner edge at z=±1.8 (bridge half-width 0.7 + margin), outer edge at z=±16
-    const mkChasmSide=(cz)=>{
-      const m=new THREE.Mesh(new THREE.BoxGeometry(CHASM_DX, 35, 14), matVoid);
-      m.position.set((CHASM_X0+CHASM_X1)/2, CHASM_DROP - 35/2, cz);
-      scene.add(m);
-    };
-    mkChasmSide(-9); mkChasmSide(9);
+    // No side wall boxes — terrain drop handles the chasm sides naturally.
 
     // Bottom void box — pitch black, sits just above the terrain floor.
     // Blocks the view of the actual terrain bottom so it looks like infinite depth.
