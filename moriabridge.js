@@ -113,7 +113,7 @@ const MoriaBridge = {
     { x:46, z: 8.1, w:44, d:14, yaw:0 },
   ],
 
-  buildScene(THREE, scene, groundY, MAT) {
+  buildScene(THREE, scene, groundY, MAT, FX) {
 
     const refs = {
       staffTip:      null,
