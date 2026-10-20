@@ -164,8 +164,8 @@ const Bree = {
   start: { x: -10, z: 2, yaw: Math.PI * 1.5 }, // at west end, facing +X (east)
 
   arrivals: {
-    barrowdowns:    { x: -68, z:  2, yaw: Math.PI * 1.5 }, // from -X, facing +X
-    weathertop:     { x:  68, z:  2, yaw: Math.PI * 0.5 }, // from +X, facing -X
+    barrowdowns:    { x: -64, z:  2, yaw: Math.PI * 1.5 }, // from -X, facing +X
+    weathertop:     { x:  64, z:  2, yaw: Math.PI * 0.5 }, // from +X, facing -X
     prancingponyinn:{ x:   4, z: 18, yaw: 0              }, // returning from inn, facing -Z (toward road)
   },
 
@@ -174,11 +174,11 @@ const Bree = {
 
   transitions: [
     {
-      trigger: { x: -72, z: 2, radius: 8 },
+      trigger: { x: -72, z: 2, radius: 6 },
       to: 'barrowdowns',
     },
     {
-      trigger: { x: 72, z: 2, radius: 8 },
+      trigger: { x: 72, z: 2, radius: 6 },
       to: 'weathertop',
     },
     {
