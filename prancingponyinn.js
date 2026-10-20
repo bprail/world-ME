@@ -240,8 +240,8 @@ const PrancingPonyInn = {
     const geoHearthSlab = new THREE.BoxGeometry(4.5, 0.3, 1.8);
     addMesh(geoHearthSlab, matStone, hearthX, hGY + 0.25, hearthZ + 1.0, 0, 0, 0);
 
-    // The fire itself
-    FX.makeFire(hearthX, hGY + 0.4, hearthZ + 0.6, {
+    // The fire itself — placed on the hearth slab, clear of the firebox recess
+    FX.makeFire(hearthX, hGY + 0.4, hearthZ + 2.2, {
       color:      0xff6010,
       intensity:  4.2,
       range:      20,
