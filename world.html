@@ -100,6 +100,13 @@ body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d
   display:block; margin-top:8px; font-size:10px;
   color:#5a4020; letter-spacing:1.5px;
 }
+#lore-counter {
+  position:fixed; bottom:24px; right:20px;
+  font-size:11px; letter-spacing:1.5px; color:#5a4a2a;
+  pointer-events:none; text-align:right; line-height:1.8;
+}
+#lore-counter .loc-line { display:block; }
+#lore-counter .loc-line.complete { color:#8a6a2a; }
 </style>
 </head>
 <body>
@@ -110,6 +117,7 @@ body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d
   <div id="crosshair"></div>
   <div id="controls">WASD · move &nbsp;|&nbsp; QE · turn &nbsp;|&nbsp; I · invert Y &nbsp;|&nbsp; ` · debug</div>
   <div id="lore-popup"></div>
+  <div id="lore-counter"></div>
   <button id="invert-btn">INVERT Y: OFF</button>
   <div id="debug-panel"></div>
 </div>
@@ -400,13 +408,18 @@ function buildFX(){
 
     const fireBase = wy;
 
-    // Point light
+    // Point light — no shadow by default. Each shadow-casting light consumes
+    // a texture unit in the fragment shader; exceeding MAX_TEXTURE_IMAGE_UNITS
+    // (typically 16) causes a shader compile error. Pass opts.castShadow:true
+    // only for a single hero fire per scene (e.g. the main campfire).
     const light = new THREE.PointLight(col, intensity, range, 2);
     light.position.set(wx, fireBase+1.0, wz);
-    light.castShadow=false; light.shadow.mapSize.set(512,512);
+    if(opts.castShadow){
+      light.castShadow=true; light.shadow.mapSize.set(512,512);
+    }
     scene.add(light);
 
-    // Fill light — wider, dimmer, no shadow
+    // Fill light — never casts shadows
     const fill = new THREE.PointLight(col, intensity*0.07, range*1.4, 2);
     fill.position.set(wx, fireBase+0.5, wz);
     scene.add(fill);
@@ -695,6 +708,7 @@ function loadLocation(locName, mod, arrivalPos){
   document.getElementById('start-loc-name').textContent = loc.subtitle||loc.name;
   document.title=`Middle-earth · ${loc.name}`;
   history.replaceState(null,'','#'+locName);
+  updateLoreCounter();
 }
 
 // ── TRANSITION ────────────────────────────────────────────────────────────────
@@ -841,7 +855,53 @@ function showLocation(){
 
 // ── LORE ──────────────────────────────────────────────────────────────────────
 let activeLore=-1, loreTimer=null;
-const lorePopup=document.getElementById('lore-popup');
+const lorePopup   = document.getElementById('lore-popup');
+const loreCounter = document.getElementById('lore-counter');
+
+// Persistent lore visit tracking — survives transitions.
+// Map<locKey, Set<loreIndex>>
+const loreVisited = new Map();
+
+function getLoreVisited(locKey){
+  if(!loreVisited.has(locKey)) loreVisited.set(locKey, new Set());
+  return loreVisited.get(locKey);
+}
+
+function updateLoreCounter(){
+  // Show one line per location that has been visited or is current,
+  // sorted: current location first, then others in visit order.
+  const lines=[];
+
+  // Helper to format one location's line
+  function formatLine(locKey, mod){
+    const total   = (mod.lorePoints||[]).length;
+    if(total===0) return null;
+    const visited = getLoreVisited(locKey).size;
+    const complete = visited===total;
+    const name    = mod.name || locKey;
+    return { text:`${name}  ${visited} / ${total}`, complete };
+  }
+
+  // Current location first
+  if(currentLoc && currentLocKey){
+    const line = formatLine(currentLocKey, currentLoc);
+    if(line) lines.push(line);
+  }
+
+  // Other visited locations
+  for(const [key, visited] of loreVisited){
+    if(key===currentLocKey) continue;
+    if(visited.size===0) continue;
+    const mod = _moduleCache[key];
+    if(!mod) continue;
+    const line = formatLine(key, mod);
+    if(line) lines.push(line);
+  }
+
+  loreCounter.innerHTML = lines.map(l=>
+    `<span class="loc-line${l.complete?' complete':''}">${l.text}</span>`
+  ).join('');
+}
 
 function checkLore(pos){
   if(!currentLoc) return;
@@ -858,6 +918,10 @@ function checkLore(pos){
         loreTimer=setTimeout(()=>{
           lorePopup.classList.remove('show'); activeLore=-1;
         },8000);
+        // Record visit and refresh counter
+        const wasNew = !getLoreVisited(currentLocKey).has(i);
+        getLoreVisited(currentLocKey).add(i);
+        if(wasNew) updateLoreCounter();
       }
       return;
     }
@@ -984,7 +1048,8 @@ function animate(){
       `Z    ${p.z.toFixed(2)}\n`+
       `GND  ${groundY(p.x,p.z).toFixed(2)}\n`+
       `YAW  ${(((player.yaw*180/Math.PI)%360+360)%360).toFixed(1)}°\n`+
-      `LOC  ${currentLocKey||'—'}`;
+      `LOC  ${currentLocKey||'—'}\n`+
+      `LORE ${getLoreVisited(currentLocKey||'').size} / ${(currentLoc&&currentLoc.lorePoints||[]).length}`;
   }
 
   renderer.clear();
