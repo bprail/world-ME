@@ -10,6 +10,8 @@
 // visits or transitions to that location. Subsequent visits are instant
 // (the module is cached in memory for the session).
 
+const LOCATION_DEFAULT = 'BarrowDowns';
+
 const LOCATION_MANIFEST = {
   weathertop:  { src:'weathertop.js',      global:'Weathertop'  },
   barrowdowns: { src:'loc_barrowdowns.js', global:'BarrowDowns' },
