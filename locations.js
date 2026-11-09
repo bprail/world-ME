@@ -24,6 +24,7 @@ const LOCATION_MANIFEST = {
   lothlorien:  { src:'lothlorien.js',      global:'Lothlorien'  },
   carasgaladhon: { src:'carasgaladhon.js', global:'CarasGaladhon'},
   argonath:    { src:'argonath.js',        global:'Argonath'    },
+  amonhen:     { src:'amonhen.js',         global:'AmonHen'     },
   bree:        { src:'bree.js',            global:'Bree'        },
   prancingponyinn: { src:'prancingponyinn.js', global:'PrancingPonyInn'},
   // shire:    { src:'shire.js',           global:'Shire'       },
