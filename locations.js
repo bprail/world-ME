@@ -10,7 +10,9 @@
 // visits or transitions to that location. Subsequent visits are instant
 // (the module is cached in memory for the session).
 
-const LOCATION_DEFAULT = 'BarrowDowns';
+// World will load as this URL # ,unless there is an explicit one set
+//   either from debugging or navigation
+const LOCATION_DEFAULT = 'barrowdowns';
 
 const LOCATION_MANIFEST = {
   weathertop:  { src:'weathertop.js',      global:'Weathertop'  },
