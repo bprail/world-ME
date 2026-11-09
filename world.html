@@ -103,10 +103,47 @@ body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d
 #lore-counter {
   position:fixed; bottom:24px; right:20px;
   font-size:11px; letter-spacing:1.5px; color:#5a4a2a;
-  pointer-events:none; text-align:right; line-height:1.8;
+  pointer-events:none; text-align:right; line-height:1.9;
 }
 #lore-counter .loc-line { display:block; }
 #lore-counter .loc-line.complete { color:#8a6a2a; }
+
+#lore-screen {
+  position:fixed; inset:0; background:rgba(4,3,2,0.94);
+  display:none; flex-direction:column; align-items:center;
+  justify-content:flex-start; padding:48px 32px; overflow-y:auto;
+  pointer-events:all; z-index:80;
+}
+#lore-screen.open { display:flex; }
+#lore-screen h2 {
+  font-size:16px; letter-spacing:4px; color:#c8a96e;
+  text-transform:uppercase; margin-bottom:32px; font-weight:normal;
+}
+.lore-loc-block { width:100%; max-width:640px; margin-bottom:28px; }
+.lore-loc-block h3 {
+  font-size:12px; letter-spacing:3px; color:#6a5a3a;
+  text-transform:uppercase; margin-bottom:12px; font-weight:normal;
+  border-bottom:1px solid #2a1e0a; padding-bottom:6px;
+}
+.lore-loc-block h3 .tally {
+  float:right; color:#4a3a1a;
+}
+.lore-loc-block h3 .tally.complete { color:#8a6a2a; }
+.lore-entry {
+  font-size:13px; line-height:1.8; color:#5a4a2a;
+  margin-bottom:10px; padding-left:12px;
+  border-left:2px solid #1e1608;
+}
+.lore-entry.found { color:#b0903a; border-left-color:#3a2a10; }
+.lore-entry cite {
+  display:block; font-size:10px; color:#3a2a10;
+  letter-spacing:1.5px; margin-top:3px;
+}
+.lore-entry.found cite { color:#5a4020; }
+#lore-screen .close-hint {
+  font-size:11px; letter-spacing:2px; color:#3a2a10;
+  margin-top:16px;
+}
 </style>
 </head>
 <body>
@@ -115,9 +152,14 @@ body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d
   <div id="location-title"></div>
   <div id="location-sub"></div>
   <div id="crosshair"></div>
-  <div id="controls">WASD · move &nbsp;|&nbsp; QE · turn &nbsp;|&nbsp; I · invert Y &nbsp;|&nbsp; ` · debug</div>
+  <div id="controls">WASD · move &nbsp;|&nbsp; QE · turn &nbsp;|&nbsp; I · invert Y &nbsp;|&nbsp; L · lore &nbsp;|&nbsp; ` · debug</div>
   <div id="lore-popup"></div>
   <div id="lore-counter"></div>
+  <div id="lore-screen">
+    <h2>Lore Discovered</h2>
+    <div id="lore-screen-body"></div>
+    <div class="close-hint">L · close</div>
+  </div>
   <button id="invert-btn">INVERT Y: OFF</button>
   <div id="debug-panel"></div>
 </div>
@@ -147,7 +189,7 @@ body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d
 
 // LOCATION_MANIFEST is defined in locations.js.
 
-const START_LOCATION = location.hash.slice(1) || 'weathertop';
+const START_LOCATION = location.hash.slice(1) || LOCATION_DEFAULT || 'weathertop';
 
 // ── DYNAMIC MODULE LOADER ─────────────────────────────────────────────────────
 // Loads a location's JS file on demand by injecting a <script> tag.
@@ -797,9 +839,13 @@ const keys={};
 document.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='KeyI'){ invertY=!invertY; updateInvertBtn(); }
+  if(e.code==='KeyL'){ toggleLoreScreen(); }
   if(e.code==='Backquote'){ toggleDebug(); }
-  // Escape: browser releases pointer lock automatically, but also clear keys here
-  if(e.code==='Escape') Object.keys(keys).forEach(k=>keys[k]=false);
+  // Escape closes lore screen if open, otherwise clears keys
+  if(e.code==='Escape'){
+    if(loreScreenOpen){ toggleLoreScreen(); }
+    else Object.keys(keys).forEach(k=>keys[k]=false);
+  }
 });
 document.addEventListener('keyup',e=>{ keys[e.code]=false; });
 
@@ -868,40 +914,115 @@ function getLoreVisited(locKey){
 }
 
 function updateLoreCounter(){
-  // Show one line per location that has been visited or is current,
-  // sorted: current location first, then others in visit order.
   const lines=[];
 
-  // Helper to format one location's line
-  function formatLine(locKey, mod){
-    const total   = (mod.lorePoints||[]).length;
-    if(total===0) return null;
-    const visited = getLoreVisited(locKey).size;
-    const complete = visited===total;
-    const name    = mod.name || locKey;
-    return { text:`${name}  ${visited} / ${total}`, complete };
-  }
-
-  // Current location first
+  // Current location — always show, even if complete
   if(currentLoc && currentLocKey){
-    const line = formatLine(currentLocKey, currentLoc);
-    if(line) lines.push(line);
+    const total   = (currentLoc.lorePoints||[]).length;
+    if(total>0){
+      const visited  = getLoreVisited(currentLocKey).size;
+      const complete = visited===total;
+      const name     = currentLoc.name||currentLocKey;
+      lines.push({
+        text: complete
+          ? `${name}  ✓`
+          : `${name}  ${visited} / ${total}`,
+        complete,
+      });
+    }
   }
 
-  // Other visited locations
+  // Other recently-visited locations — incomplete only, most recent first,
+  // capped at 2 so total counter stays at most 3 lines
+  const others=[];
   for(const [key, visited] of loreVisited){
     if(key===currentLocKey) continue;
     if(visited.size===0) continue;
-    const mod = _moduleCache[key];
+    const mod=_moduleCache[key];
     if(!mod) continue;
-    const line = formatLine(key, mod);
-    if(line) lines.push(line);
+    const total=(mod.lorePoints||[]).length;
+    if(total===0) continue;
+    const complete=visited.size===total;
+    if(complete) continue; // hide completed non-current locations
+    others.push({key, name:mod.name||key, visited:visited.size, total});
   }
+  // Take the last 2 (most recently added to the Map)
+  others.slice(-2).forEach(o=>{
+    lines.push({ text:`${o.name}  ${o.visited} / ${o.total}`, complete:false });
+  });
 
-  loreCounter.innerHTML = lines.map(l=>
+  loreCounter.innerHTML=lines.map(l=>
     `<span class="loc-line${l.complete?' complete':''}">${l.text}</span>`
   ).join('');
 }
+
+// ── LORE SCREEN (L key) ───────────────────────────────────────────────────────
+const loreScreen     = document.getElementById('lore-screen');
+const loreScreenBody = document.getElementById('lore-screen-body');
+let loreScreenOpen   = false;
+
+function buildLoreScreen(){
+  const blocks=[];
+
+  // Current location first, then others in visit order
+  const orderedKeys=[];
+  if(currentLocKey) orderedKeys.push(currentLocKey);
+  for(const key of loreVisited.keys()){
+    if(key!==currentLocKey) orderedKeys.push(key);
+  }
+
+  for(const key of orderedKeys){
+    const mod = key===currentLocKey ? currentLoc : _moduleCache[key];
+    if(!mod) continue;
+    const pts   = mod.lorePoints||[];
+    if(pts.length===0) continue;
+    const visited = getLoreVisited(key);
+    const total   = pts.length;
+    const found   = visited.size;
+    const complete= found===total;
+    const name    = mod.name||key;
+
+    let html=`<div class="lore-loc-block">`;
+    html+=`<h3>${name}<span class="tally${complete?' complete':''}">`;
+    html+=complete ? `✓ complete` : `${found} / ${total}`;
+    html+=`</span></h3>`;
+
+    pts.forEach((lp,i)=>{
+      const isFound=visited.has(i);
+      html+=`<div class="lore-entry${isFound?' found':''}">`;
+      if(isFound){
+        html+=`${lp.text}<cite>${lp.cite}</cite>`;
+      } else {
+        html+=`<em>Not yet discovered</em>`;
+      }
+      html+=`</div>`;
+    });
+
+    html+=`</div>`;
+    blocks.push(html);
+  }
+
+  loreScreenBody.innerHTML = blocks.length
+    ? blocks.join('')
+    : '<p style="color:#3a2a10;letter-spacing:1.5px;font-size:12px">No lore discovered yet.</p>';
+}
+
+function toggleLoreScreen(){
+  loreScreenOpen=!loreScreenOpen;
+  if(loreScreenOpen){
+    buildLoreScreen();
+    loreScreen.classList.add('open');
+    // Release pointer lock so mouse can scroll
+    if(locked) document.exitPointerLock();
+  } else {
+    loreScreen.classList.remove('open');
+  }
+}
+
+loreScreen.addEventListener('click', e=>{
+  // Click outside content closes screen
+  if(e.target===loreScreen) toggleLoreScreen();
+});
 
 function checkLore(pos){
   if(!currentLoc) return;
