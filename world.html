@@ -545,7 +545,8 @@ function buildFX(){
 // mod:        the already-loaded location module object
 // locName:    its registry key string
 // arrivalPos: {x,z,yaw} from the destination's arrivals table, or null for start
-function loadLocation(locName, mod, arrivalPos){
+// fromKey:    registry key of the location the player is arriving from, or null
+function loadLocation(locName, mod, arrivalPos, fromKey=null){
   const loc = mod;
   if(!loc){ console.error('loadLocation called with null module:', locName); return; }
 
@@ -717,14 +718,16 @@ function loadLocation(locName, mod, arrivalPos){
 
   // Build scene objects — wrap scene.add so every object the location adds
   // is automatically tracked in locObjects for teardown on transition.
+  // Intercept scene.add for both buildScene AND onArrive so all objects
+  // added by either call are tracked automatically for teardown.
   const _origAdd = scene.add.bind(scene);
   scene.add = (...args) => {
     for(const obj of args) locObjects.push(obj);
     return _origAdd(...args);
   };
+
   const FX = buildFX();
   locRefs = loc.buildScene(THREE, scene, groundY, MAT, FX);
-  scene.add = _origAdd; // restore original after buildScene completes
 
   // Player start — destination owns arrival positions, keyed by source location.
   // Falls back to loc.start for fresh load or unknown source.
@@ -737,7 +740,22 @@ function loadLocation(locName, mod, arrivalPos){
   currentLocKey   = locName;
   currentWalkables= loc.walkables || [];
   currentBarriers = loc.barriers  || [];
-  preloadAdjacent(loc); // silently pre-load neighbouring locations
+  preloadAdjacent(loc);
+
+  // onArrive(fromKey, refs)
+  // Called after buildScene and player placement, before pointer lock.
+  // fromKey: previous location key, or null on direct URL load.
+  // refs:    whatever buildScene returned.
+  // scene.add() intercept is still active — objects added here are tracked
+  // for teardown automatically, same contract as buildScene.
+  if(loc.onArrive) loc.onArrive(fromKey||null, locRefs);
+
+  // Restore scene.add now that both buildScene and onArrive are done
+  scene.add = _origAdd;
+
+  // Re-read after onArrive in case it mutated walkables/barriers/transitions
+  currentWalkables = loc.walkables || [];
+  currentBarriers  = loc.barriers  || [];
 
   // Reset lore state
   activeLore=-1;
@@ -780,7 +798,7 @@ function triggerTransition(toKey){
 
     // Wait for fade to complete (800ms) before swapping scene
     setTimeout(()=>{
-      loadLocation(toKey, mod, arrival);
+      loadLocation(toKey, mod, arrival, fromKey);
       showLocation();
       setTimeout(()=>{ transOverlay.classList.remove('fade'); transitioning=false; }, 800);
     }, 800);
@@ -1185,7 +1203,7 @@ function animate(){
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 // Load only the starting location's script — everything else loads on demand.
 loadLocationModule(START_LOCATION).then(mod => {
-  loadLocation(START_LOCATION, mod, null);
+  loadLocation(START_LOCATION, mod, null, null);
   animate();
 }).catch(err => {
   console.error('Failed to load starting location:', err);

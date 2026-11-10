@@ -9,6 +9,19 @@ const Argonath = {
   name: 'The Argonath',
   subtitle: 'Gates of Gondor · Nen Hithoel',
 
+  // Called by the engine after buildScene, before the first frame.
+  // fromKey: previous location registry key, or null on direct URL load.
+  // refs: whatever buildScene returned.
+  onArrive(fromKey, refs) {
+    if (fromKey === 'amonhen') {
+      // Player has crossed to Amon Hen and returned — reveal the east-shore
+      // cairn trail hinting at the path to Emyn Muil.
+      if (refs.eastMarkers) refs.eastMarkers.visible = true;
+    }
+    // fromKey === null (direct URL load) or any other origin: east shore
+    // stays hidden — the Emyn Muil route is only revealed after Amon Hen.
+  },
+
   // -----------------------------------------------------------
   // Atmosphere — bright overcast river-valley day
   // -----------------------------------------------------------
@@ -189,6 +202,7 @@ const Argonath = {
   arrivals: {
     carasgaladhon: { x:  0,   z: -68, yaw: Math.PI        }, // arriving from -Z (north), facing +Z (south into scene)
     amonhen:       { x: -22,  z:  30, yaw: Math.PI * 1.5  }, // arriving from -X (west shore), facing +X (east into scene)
+    emynmuil:      { x:  22,  z:  30, yaw: Math.PI * 0.5  }, // arriving from +X (east shore), facing -X (west into scene)
   },
 
   // -----------------------------------------------------------
@@ -206,6 +220,11 @@ const Argonath = {
       // West shore landing — to Amon Hen
       trigger: { x: -22, z: 38, radius: 7 },
       to: 'amonhen',
+    },
+    {
+      // East shore — to Emyn Muil (only reachable after visiting Amon Hen)
+      trigger: { x: 22, z: 38, radius: 7 },
+      to: 'emynmuil',
     },
   ],
 
@@ -758,6 +777,52 @@ const Argonath = {
     }
     refs.birds = birds;
 
+    // =====================================================
+    // EAST SHORE TRAIL MARKERS — hidden until player has
+    // visited Amon Hen (flag set by onArrive).
+    // A line of worn cairns leading from the shore toward
+    // the east bank, hinting at the path to Emyn Muil.
+    // =====================================================
+    const eastMarkers = new THREE.Group();
+    eastMarkers.visible = false;
+
+    // Cairns — stacked flat stones, spaced along east shore
+    const cairnPositions = [
+      [ 11, 50 ], [ 14, 42 ], [ 17, 34 ], [ 20, 26 ], [ 22, 18 ],
+    ];
+    for (const [cx, cz] of cairnPositions) {
+      const gy = groundY(cx, cz);
+      for (let s = 0; s < 3; s++) {
+        const r = 0.55 - s * 0.1;
+        const h = 0.22;
+        const slabGeo = new THREE.CylinderGeometry(r, r + 0.05, h, 9);
+        const slab = new THREE.Mesh(slabGeo, stoneMat);
+        slab.position.set(cx, gy + h * 0.5 + s * (h + 0.04), cz);
+        slab.rotation.y = s * 0.6 + Math.random() * 0.3;
+        slab.castShadow = true;
+        slab.receiveShadow = true;
+        eastMarkers.add(slab);
+      }
+    }
+
+    // Glow discs — stored on refs for clean onFrame access
+    const glowDiscs = [];
+    const trailGlowMat = new THREE.MeshBasicMaterial({
+      color: 0xffddaa, transparent: true, opacity: 0.18, depthWrite: false,
+    });
+    for (const [cx, cz] of cairnPositions) {
+      const gy = groundY(cx, cz);
+      const discGeo = new THREE.CylinderGeometry(1.4, 1.4, 0.05, 12);
+      const disc = new THREE.Mesh(discGeo, trailGlowMat.clone());
+      disc.position.set(cx, gy + 0.06, cz);
+      eastMarkers.add(disc);
+      glowDiscs.push(disc);
+    }
+
+    scene.add(eastMarkers);
+    refs.eastMarkers = eastMarkers;
+    refs.glowDiscs = glowDiscs;
+
     return refs;
   },
 
@@ -840,6 +905,13 @@ const Argonath = {
     // ---- Waterfall shimmer ----------------------------
     if (refs.waterfall) {
       refs.waterfall.material.opacity = 0.5 + Math.sin(t * 2.1) * 0.06;
+    }
+
+    // ---- East shore markers — animate when visible -----
+    if (refs.eastMarkers && refs.eastMarkers.visible && refs.glowDiscs) {
+      for (let i = 0; i < refs.glowDiscs.length; i++) {
+        refs.glowDiscs[i].material.opacity = 0.12 + Math.sin(t * 1.4 + i * 0.6) * 0.08;
+      }
     }
   },
 
