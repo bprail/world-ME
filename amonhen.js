@@ -5,7 +5,7 @@
 const AmonHen = {
 
   name:     'Amon Hen',
-  subtitle: 'The Hill of Sight · Nen Hithoel',
+  subtitle: 'The Hill of Sight · Nen Hithoel · Argonath',
 
   // ─── Atmosphere ──────────────────────────────────────────────────────────
   atmosphere: {
@@ -227,7 +227,8 @@ const AmonHen = {
   start: { x: 0, z: 68, yaw: 0 },   // at +Z shore, facing -Z into the hill
 
   arrivals: {
-    argonath: { x: 0, z: 68, yaw: 0 },   // arriving from +Z (lake), facing -Z up the hill
+    argonath:  { x: 0, z:  68, yaw: 0          },  // arriving from +Z (lake), facing -Z up the hill
+    eastemnet: { x: 0, z: -78, yaw: Math.PI    },  // arriving from -Z, facing +Z back toward summit
   },
 
   // ─── Boundary and transitions ─────────────────────────────────────────────
@@ -235,8 +236,12 @@ const AmonHen = {
 
   transitions: [
     {
-      trigger: { x: 0, z: 80, radius: 8 },
+      trigger: { x: 0, z:  80, radius: 8 },
       to: 'argonath',
+    },
+    {
+      trigger: { x: 0, z: -80, radius: 8 },
+      to: 'eastemnet',
     },
   ],
 
