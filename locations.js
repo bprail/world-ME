@@ -26,8 +26,9 @@ const LOCATION_MANIFEST = {
   argonath:    { src:'argonath.js',        global:'Argonath'    },
   amonhen:     { src:'amonhen.js',         global:'AmonHen'     },
   eastemnet:   { src:'eastemnet.js',       global:'Eastemnet'   },
+  fangorn:     { src: 'fangorn.js',        global: 'Fangorn'    },
+  entmoot:     { src: 'entmoot.js',        global: 'Entmoot'    },
+  edoras:      { src: 'edoras.js',         global: 'Edoras'     },
   bree:        { src:'bree.js',            global:'Bree'        },
   prancingponyinn: { src:'prancingponyinn.js', global:'PrancingPonyInn'},
-  // shire:    { src:'shire.js',           global:'Shire'       },
-  // moria:    { src:'moria.js',           global:'Moria'       },
 };
