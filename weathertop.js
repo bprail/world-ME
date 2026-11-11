@@ -61,14 +61,16 @@ const Weathertop = (() => {  // eslint-disable-line no-unused-vars
     subtitle: 'Amon Sûl · The Watchtower',
 
     atmosphere: {
-      fogColor:    0x06080e,
-      fogDensity:  0.009,
-      skyColor:    0x04060c,
-      ambientColor:0x08090f,
+      fogColor:         0x06080e,
+      fogType:          'exponential',
+      fogDensity:       0.009,
+      skyColor:         0x04060c,
+      ambientColor:     0x08090f,
       ambientIntensity: 1.4,
-      moonColor:   0x6878a8,
-      moonIntensity:0.42,
-      moonPosition:{x:-80,y:100,z:-60},
+      moonColor:        0x6878a8,
+      moonIntensity:    0.42,
+      moonPosition:     {x:-80,y:100,z:-60},
+      showStars:        true,
     },
 
     pathWaypoints,
@@ -77,10 +79,10 @@ const Weathertop = (() => {  // eslint-disable-line no-unused-vars
     vertexColor,
 
     lorePoints:[
-      {pos:{x:0,z:40}, radius:8,
+      {pos:{x:0,z:40}, radius:6,
         text:'"The Road wound away before them like a piece of string."',
         cite:'— The Fellowship of the Ring'},
-      {pos:{x:8,z:44}, radius:6,
+      {pos:{x:14,z:50}, radius:5,
         text:'"The East Road. Rivendell lay many days journey ahead — but the Road would take them there, if they had the courage to follow it."',
         cite:'— The Fellowship of the Ring'},
       {pos:{x:8,z:19}, radius:5,
@@ -97,16 +99,16 @@ const Weathertop = (() => {  // eslint-disable-line no-unused-vars
     start: { x:0, z:45, yaw:0 },
 
     arrivals: {
-      bree:      { x:0,  z:60, yaw:0           },  // arriving from Bree to the south, facing hill
-      rivendell: { x:40, z:45, yaw:Math.PI*1.5 },  // arriving from Rivendell to the east, facing -X
+      bree:      { x:0,  z:60, yaw:0           },  // arriving from +Z, facing -Z
+      rivendell: { x:40, z:45, yaw:Math.PI*0.5 },  // arriving from +X, facing -X
     },
 
     boundary: 85,
 
     transitions:[
-      // South → Bree along the Greenway
+      // +Z exit → Bree (south, along the road)
       { trigger:{x:0,  z:78, radius:8}, to:'bree'      },
-      // East → Rivendell along the East Road — trigger before the moorland wall
+      // +X exit → Rivendell (east, along the East Road)
       { trigger:{x:48, z:45, radius:8}, to:'rivendell'  },
     ],
 
