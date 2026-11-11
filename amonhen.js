@@ -47,15 +47,19 @@ const AmonHen = {
     const northness = Math.max(0, -z - 10) / 60.0;  // 0 at z=-10, 1 at z=-70
     const hillBase  = northness * northness * 28.0;
 
-    // Summit dome centred around (0, -52)
-    const dxS = x * 0.012;
-    const dzS = (z + 52) * 0.012;
-    const dome = Math.max(0, 1.0 - (dxS*dxS + dzS*dzS)) * 14.0;
+    // Summit dome centred around (0, -52) — sharpened so it is always the highest point
+    // Wider radius (0.009 scale) but stronger peak so flanks taper clearly
+    const dxS = x * 0.009;
+    const dzS = (z + 52) * 0.009;
+    const domeFalloff = Math.max(0, 1.0 - (dxS*dxS + dzS*dzS));
+    const dome = domeFalloff * 20.0;
 
-    // Broad noise for terrain undulation
-    const big   = fbm(x * 0.018, z * 0.018) * 4.5;
-    // Fine detail
-    const fine  = fbm(x * 0.07,  z * 0.07)  * 1.2;
+    // Broad noise for terrain undulation — suppressed near the dome peak
+    // so noise never overcomes the summit's lead
+    const noiseSuppression = 1.0 - domeFalloff * 0.75;
+    const big   = fbm(x * 0.018, z * 0.018) * 4.0 * noiseSuppression;
+    // Fine detail — also damped near summit
+    const fine  = fbm(x * 0.07,  z * 0.07)  * 1.0 * noiseSuppression;
     // Shore flatness — clamp near z=+60
     const shoreFlat = Math.max(0, (z - 42) / 25.0);
 
@@ -226,13 +230,27 @@ const AmonHen = {
       text:   '"Then Aragorn was left alone. Leaves came falling through the air. The last of the Fellowship stood upon Amon Hen as evening came on, and his heart was troubled."',
       cite:   '— The Fellowship of the Ring, II.10',
     },
+    {
+      // East fire — toward the woods where Boromir fell
+      pos:    { x: 14, z: -52 },
+      radius: 5,
+      text:   'From the eastern woods below comes the sound of horn and battle-cry — Boromir\'s great horn, winded once, twice, broken off. The trees are that way. He cannot be far.',
+      cite:   '— The Fellowship of the Ring, II.10',
+    },
+    {
+      // South fire — back toward the shore
+      pos:    { x: 0, z: -38 },
+      radius: 5,
+      text:   'Below, through the trees, the grey gleam of Nen Hithoel. The boats are still on the shore. Frodo has taken one already. There is no time — the others must choose now: follow him, or answer the horn.',
+      cite:   '— The Fellowship of the Ring, II.10',
+    },
   ],
 
   // ─── Start and arrivals ───────────────────────────────────────────────────
-  start: { x: 0, z: 68, yaw: 0 },   // at +Z shore, facing -Z into the hill
+  start: { x: 0, z: 58, yaw: 0 },   // at +Z water's edge, facing -Z into the hill
 
   arrivals: {
-    argonath:  { x: 0, z:  68, yaw: 0          },  // arriving from +Z (lake), facing -Z up the hill
+    argonath:  { x: 0, z:  58, yaw: 0          },  // arriving from +Z (lake shore), facing -Z up the hill
     eastemnet: { x: 0, z: -78, yaw: Math.PI    },  // arriving from -Z, facing +Z back toward summit
   },
 
@@ -254,12 +272,12 @@ const AmonHen = {
   // The Seat of Seeing: a raised stone platform at the summit
   // yaw:0 — runs along Z axis; summit terrain is ~y:26 here
   walkables: [
-    // Stone approach ramp — east side of summit, rises from terrain
-    { x:  6, z: -46, yaw: 0,            length: 10, width: 4.0, yStart: 24.0, yEnd: 27.5 },
-    // The Seat platform — flat crown
-    { x:  0, z: -52, yaw: 0,            length:  8, width: 8.0, yStart: 27.5, yEnd: 27.5 },
-    // West descent ramp
-    { x: -6, z: -58, yaw: 0,            length: 10, width: 4.0, yStart: 27.5, yEnd: 24.0 },
+    // Stone approach ramp — east side of summit, rises from terrain (~y:28) to crown
+    { x:  6, z: -46, yaw: 0, length: 10, width: 4.0, yStart: 28.0, yEnd: 33.0 },
+    // The Seat platform — flat crown, sits clear above any noise-driven flank
+    { x:  0, z: -52, yaw: 0, length:  8, width: 8.0, yStart: 33.0, yEnd: 33.0 },
+    // West descent ramp back to terrain
+    { x: -6, z: -58, yaw: 0, length: 10, width: 4.0, yStart: 33.0, yEnd: 28.0 },
   ],
 
   // ─── Barriers ────────────────────────────────────────────────────────────
@@ -438,31 +456,31 @@ const AmonHen = {
     // Platform base — a wide flat stone
     const platformGeo = new THREE.BoxGeometry(10.0, 1.2, 10.0);
     const platform = new THREE.Mesh(platformGeo, seatMat);
-    platform.position.set(0, 27.0, -52);
+    platform.position.set(0, 32.4, -52);   // top face sits at y:33
     scene.add(platform);
 
     // The Seat itself — a tall stone chair, ancient and carved
     // Back slab
     const backGeo = new THREE.BoxGeometry(3.5, 3.8, 0.55);
     const back = new THREE.Mesh(backGeo, seatDark);
-    back.position.set(0, 29.5, -53.2);
+    back.position.set(0, 35.0, -53.2);
     scene.add(back);
 
     // Seat slab
     const seatSlabGeo = new THREE.BoxGeometry(2.8, 0.45, 1.6);
     const seatSlab = new THREE.Mesh(seatSlabGeo, seatDark);
-    seatSlab.position.set(0, 28.0, -52.3);
+    seatSlab.position.set(0, 33.5, -52.3);
     scene.add(seatSlab);
 
     // Left arm
     const armGeo = new THREE.BoxGeometry(0.4, 1.0, 1.8);
     const armL = new THREE.Mesh(armGeo, seatDark);
-    armL.position.set(-1.5, 28.6, -52.3);
+    armL.position.set(-1.5, 34.1, -52.3);
     scene.add(armL);
 
     // Right arm
     const armR = armL.clone();
-    armR.position.set(1.5, 28.6, -52.3);
+    armR.position.set(1.5, 34.1, -52.3);
     scene.add(armR);
 
     // Summit standing columns — tall sentinels flanking the seat
@@ -479,7 +497,7 @@ const AmonHen = {
     for (const sc of summitColData) {
       const geo = new THREE.CylinderGeometry(sc.rT, sc.rB, sc.h, 9);
       const mesh = new THREE.Mesh(geo, seatMat);
-      mesh.position.set(sc.x, 27.5 + sc.h / 2 - sc.h * 0.1, sc.z);
+      mesh.position.set(sc.x, 33.0 + sc.h / 2 - sc.h * 0.1, sc.z);
       scene.add(mesh);
     }
 
@@ -493,7 +511,7 @@ const AmonHen = {
     for (const [rx, rz, rs] of summitRubble) {
       const geo = new THREE.SphereGeometry(rs, 8, 6);
       const mesh = new THREE.Mesh(geo, ruinMat);
-      mesh.position.set(rx, 27.5 + rs * 0.45, rz);
+      mesh.position.set(rx, 33.0 + rs * 0.45, rz);
       mesh.rotation.set(
         (Math.random()-0.5)*0.5,
         Math.random()*Math.PI,
@@ -506,14 +524,14 @@ const AmonHen = {
     // Stone paving approach ramp — east approach
     const rampGeo = new THREE.BoxGeometry(4.0, 0.5, 10.0);
     const rampEast = new THREE.Mesh(rampGeo, seatMat);
-    rampEast.position.set(6, 25.8, -46);
-    rampEast.rotation.x = -Math.atan2(27.5 - 24.0, 10.0);
+    rampEast.position.set(6, 30.6, -46);   // midpoint of 28→33 ramp
+    rampEast.rotation.x = -Math.atan2(33.0 - 28.0, 10.0);
     scene.add(rampEast);
 
     // West descent ramp geometry
     const rampWest = new THREE.Mesh(rampGeo, seatMat);
-    rampWest.position.set(-6, 25.8, -58);
-    rampWest.rotation.x = Math.atan2(27.5 - 24.0, 10.0);
+    rampWest.position.set(-6, 30.6, -58);
+    rampWest.rotation.x = Math.atan2(33.0 - 28.0, 10.0);
     scene.add(rampWest);
 
     // ── Scattered boulders mid-hill ───────────────────────────────────────
@@ -531,19 +549,59 @@ const AmonHen = {
       scene.add(mesh);
     }
 
-    // ── A torch at the summit for drama ───────────────────────────────────
-    // Unlit — cold iron, no flame
-    // We use a simple pole + head instead of FX.makeTorch so it's dark
-    const torchPoleMat = new THREE.MeshLambertMaterial({ color: 0x3a3530 });
-    const torchPoleGeo = new THREE.CylinderGeometry(0.07, 0.09, 2.2, 7);
-    const poleL = new THREE.Mesh(torchPoleGeo, torchPoleMat);
-    poleL.position.set(-2.5, 28.0 + 1.1, -53.8);
-    scene.add(poleL);
-    const poleR = poleL.clone();
-    poleR.position.set(2.5, 28.0 + 1.1, -53.8);
-    scene.add(poleR);
+    // ── Directional signal fires at the summit edge ───────────────────────
+    // Two fires mark the two choices visible from the Seat:
+    //   EAST  (+X, x:+14) — the woods where Boromir fell, orc-sounds come from there
+    //   SOUTH (+Z, z:-38) — back down the hill toward the shore and the boats
+    //
+    // Both fires sit on the platform rim, slightly below the seat level,
+    // so they are visible from the Seat walkable but don't obscure the chair.
 
-    return {}; // no onFrame refs needed
+    // East fire — toward Boromir / the eastern woods
+    FX.makeFire(14, 33.0 + 0.1, -52, {
+      color:      0xff4400,   // harsher red-orange — danger, battle
+      intensity:  4.0,
+      range:      18,
+      flameScale: 0.9,
+      emberCount: 60,
+      emberSize:  0.09,
+      castShadow: true,       // most visible fire — worth the shadow slot
+    });
+
+    // Stone cairn beneath east fire — a crude marker stacked by Aragorn
+    const cairnMat = new THREE.MeshLambertMaterial({ color: 0x706860 });
+    const cairnStones = [
+      { r: 0.65, h: 0.5,  yo: 0.25  },
+      { r: 0.50, h: 0.45, yo: 0.72  },
+      { r: 0.35, h: 0.40, yo: 1.12  },
+    ];
+    for (const cs of cairnStones) {
+      const geo = new THREE.CylinderGeometry(cs.r * 0.8, cs.r, cs.h, 9);
+      const mesh = new THREE.Mesh(geo, cairnMat);
+      mesh.position.set(14, 33.0 + cs.yo, -52);
+      scene.add(mesh);
+    }
+
+    // South fire — toward the shore and the boats
+    FX.makeFire(0, 33.0 + 0.1, -38, {
+      color:      0xffaa20,   // warmer amber — urgency, retreat, safety of the boats
+      intensity:  3.5,
+      range:      16,
+      flameScale: 0.85,
+      emberCount: 50,
+      emberSize:  0.08,
+      castShadow: true,
+    });
+
+    // Stone cairn beneath south fire
+    for (const cs of cairnStones) {
+      const geo = new THREE.CylinderGeometry(cs.r * 0.8, cs.r, cs.h, 9);
+      const mesh = new THREE.Mesh(geo, cairnMat);
+      mesh.position.set(0, 33.0 + cs.yo, -38);
+      scene.add(mesh);
+    }
+
+    return {}; // no onFrame refs needed — FX handles fire animation
   },
 
   // ─── onFrame ─────────────────────────────────────────────────────────────

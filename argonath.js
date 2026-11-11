@@ -208,12 +208,17 @@ const Argonath = {
   // -----------------------------------------------------------
   // Player start and arrivals
   // -----------------------------------------------------------
-  start: { x: 0, z: -68, yaw: Math.PI },  // at -Z end (north), facing +Z (south into scene)
+  // Arrival positions are set well inside their respective trigger edges.
+  // Clearance = arrival position - (trigger centre ± radius):
+  //   carasgaladhon: arrives z:-55, trigger z:-78 r:5 → edge z:-73 → 18 clear
+  //   amonhen:       arrives z:28,  trigger z:52  r:5 → edge z:47  → 19 clear
+  //   emynmuil:      arrives z:28,  trigger z:52  r:5 → edge z:47  → 19 clear
+  start: { x: 0, z: -55, yaw: Math.PI },  // at -Z end (north), facing +Z (south into scene)
 
   arrivals: {
-    carasgaladhon: { x:  0,   z: -68, yaw: Math.PI        }, // arriving from -Z (north), facing +Z (south into scene)
-    amonhen:       { x: -22,  z:  30, yaw: Math.PI * 1.5  }, // arriving from -X (west shore), facing +X (east into scene)
-    emynmuil:      { x:  22,  z:  30, yaw: Math.PI * 0.5  }, // arriving from +X (east shore), facing -X (west into scene)
+    carasgaladhon: { x:  0,   z: -55, yaw: Math.PI        }, // arriving from -Z (north), facing +Z (south into scene)
+    amonhen:       { x: -22,  z:  28, yaw: Math.PI * 1.5  }, // arriving from -X (west shore), facing +X (east into scene)
+    emynmuil:      { x:  22,  z:  28, yaw: Math.PI * 0.5  }, // arriving from +X (east shore), facing -X (west into scene)
   },
 
   // -----------------------------------------------------------
@@ -223,18 +228,18 @@ const Argonath = {
 
   transitions: [
     {
-      // North exit — back toward Caras Galadhon, at -Z end
-      trigger: { x: 0, z: -78, radius: 8 },
+      // North exit — trigger at z:-78 r:5, arrival z:-55, 18 units clear
+      trigger: { x: 0, z: -78, radius: 5 },
       to: 'carasgaladhon',
     },
     {
-      // West shore landing — to Amon Hen
-      trigger: { x: -22, z: 38, radius: 7 },
+      // West shore — trigger at z:52 r:5, arrival z:28, 19 units clear
+      trigger: { x: -22, z: 52, radius: 5 },
       to: 'amonhen',
     },
     {
-      // East shore — to Emyn Muil (only reachable after visiting Amon Hen)
-      trigger: { x: 22, z: 38, radius: 7 },
+      // East shore — trigger at z:52 r:5, arrival z:28, 19 units clear
+      trigger: { x: 22, z: 52, radius: 5 },
       to: 'emynmuil',
     },
   ],
