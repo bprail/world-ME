@@ -13,6 +13,11 @@ const Eregion = {
   name:     'Eregion',
   subtitle: 'Land of the Ring-makers · The Forgotten Realm',
 
+  // ─── onLoad ─────────────────────────────────────────────────────────────────
+  // No async data needed for Eregion — terrain and geometry are fully
+  // procedural. onLoad is a no-op placeholder kept for contract compliance.
+  async onLoad() {},
+
   // ─── Atmosphere ─────────────────────────────────────────────────────────────
   // Late dusk — the sun dropped behind the Misty Mountains to the west an
   // hour ago. The sky is deep indigo-violet overhead, with a warm bruised
@@ -119,35 +124,39 @@ const Eregion = {
   // Lore off the main path — reward players who wander toward the fire and ruins.
   lorePoints: [
     {
+      // The stones of Hollin speak — narration/song, no speaker
       pos:    { x: -10, z: -32 },
       radius: 6,
       text:   '"Hollin, Hollin, I hear the stones lament. Deep they delved us, fair they wrought us, high they builded us; but they are gone."',
-      cite:   '— The Fellowship of the Ring, Book II',
+      cite:   '— The Fellowship of the Ring, II.3',
     },
     {
+      // Legolas speaking to the Company — direct speech
       pos:    { x: 14, z: -5 },
       radius: 5,
       text:   '"They dwelt here once, Elves of the Middle Days; and here they wrought the rings of power, and here their joy came to an end."',
-      cite:   '— Companion lore',
+      cite:   '— Legolas, The Fellowship of the Ring, II.3',
     },
     {
+      // Original text written for this world — no Tolkien citation
       pos:    { x: -8, z: 25 },
       radius: 6,
       text:   '"The land is silent. Even the birds are hushed, and the sky holds its breath as the Misty Mountains gather the dark."',
-      cite:   '— Companion lore',
+      cite:   '— Eregion',
     },
     {
+      // Legolas speaking — direct speech, same chapter
       pos:    { x: 12, z: 50 },
       radius: 5,
-      text:   '"Regret, Pippin. They passed these hills ten thousand years ago. They lived here once, and the land knew them."',
-      cite:   '— Legolas, The Fellowship of the Ring',
+      text:   '"Hollin was of old a country of the Elves. In the deep places they delved, and in the high places they built; but they are gone now long ago."',
+      cite:   '— Legolas, The Fellowship of the Ring, II.3',
     },
     {
-      // Near the campfire — slightly off path to invite exploration
+      // Narration — no speaker
       pos:    { x: -8, z: 8 },
       radius: 5,
-      text:   '"By the small fire they kept, none spoke for a long while. The Red Eye was ever in their thought."',
-      cite:   '— Companion lore',
+      text:   '"They were troubled with their own thought. Each of them feared to find the others, and dreaded to see that searching eye turned upon him."',
+      cite:   '— The Fellowship of the Ring, II.3',
     },
   ],
 
@@ -215,9 +224,11 @@ const Eregion = {
     ridgeDefs.forEach(({ x, z, w, h, d }, i) => {
       const sampleX = Math.min(85, x);
       const gy      = groundY(sampleX, z);
-      // Bury box so bottom ~35% is below terrain
+      // Centre the box so its bottom sits 8 units BELOW the sampled ground.
+      // This guarantees no floating regardless of local terrain height.
+      // The top protrudes (h/2 - 8) above gy, which for h=40-56 is 12–20 units.
       place(new THREE.BoxGeometry(w, h, d), mountainMat,
-        x, gy + h * 0.65, z,
+        x, gy + h * 0.5 - 8, z,
         0, i * 0.15, 0);
     });
 
@@ -232,11 +243,12 @@ const Eregion = {
     spireDefs.forEach(({ x, z, h, rb, rt, ridgeH }, i) => {
       const sampleX = Math.min(85, x);
       const gy      = groundY(sampleX, z);
-      // Ridge top is at gy + ridgeH * 0.65 + ridgeH * 0.5
-      const ridgeTop = gy + ridgeH * 0.65 + ridgeH * 0.5;
-      // Plant spire so its bottom half is inside the ridge
+      // Ridge top = gy + ridgeH*0.5 - 8 (centre) + ridgeH*0.5 (half-height)
+      //           = gy + ridgeH - 8
+      const ridgeTop = gy + ridgeH - 8;
+      // Spire centre: bury bottom quarter into the ridge top
       place(new THREE.CylinderGeometry(rt, rb, h, 9), mountainMat,
-        x, ridgeTop + h * 0.25, z,
+        x, ridgeTop + h * 0.38, z,
         0, i * 0.6, 0);
     });
 
@@ -315,72 +327,74 @@ const Eregion = {
     }
 
     // ── BROKEN ELVISH ARCH ──────────────────────────────────────────────────
-    // Over / beside the road at z ≈ -8. One pier stands; the other has
-    // collapsed. The arch ring survives on the standing side, broken at mid-span.
+    // One pier stands with a quarter-circle arc springing from its top,
+    // curving inward over where the road passes. The other pier has collapsed.
+    //
+    // TorusGeometry arc explanation:
+    //   - By default a Torus lies in the XZ plane, tube circling around the Y axis.
+    //   - Its arc starts at +X and sweeps CCW (toward +Z) when viewed from above.
+    //   - We rotate it so the arc sweeps upward (in Y) starting at the pier top.
+    //
+    // The pier is at pierX (west/−X side of road). The torus origin is placed AT
+    // the pier top. The arc radius equals the span we want the arch to cover.
+    // With rx = -PI/2 the torus tilts into the XY plane; the arc then starts at
+    // +X and sweeps upward in Y. Since our pier is on the −X side, we set ry=PI
+    // so the arc sweeps from the pier top toward +X (inward over the road).
     {
-      const ax = 0, az = -8;
-      const gy  = groundY(ax, az);
+      const az    = -8;
+      const gy    = groundY(-4, az);
       const pierH = 5.0;
-      const archR = 3.2;   // radius of arch centreline from road centre
+      const tube  = 0.30;
+      const arcR  = 3.8;   // how far the arch sweeps — quarter circle covers arcR units horizontally
 
-      // ── West pier (standing, -X side) ───────────────────────────────────
-      const pierX = ax - archR;
+      // ── Standing pier (west / −X side) ──────────────────────────────────
+      const pierX = -4;
+      const pierTopY = gy + pierH - pierH * 0.18;  // top surface of pier
+
       place(new THREE.CylinderGeometry(0.55, 0.72, pierH, 9), mossyStone,
-        pierX, gy + pierH * 0.5 - pierH * 0.18, az, 0, 0.1, 0);
-      // Capital on top of standing pier
-      place(new THREE.BoxGeometry(1.4, 0.5, 1.4), elvishStn,
-        pierX, gy + pierH - pierH * 0.18 + 0.25, az, 0, 0.1, 0);
+        pierX, gy + pierH * 0.5 - pierH * 0.18, az);
+      // Capital block on pier top
+      place(new THREE.BoxGeometry(1.5, 0.45, 1.5), elvishStn,
+        pierX, pierTopY + 0.22, az);
 
-      // ── East pier (collapsed, +X side) ──────────────────────────────────
-      const pierXe = ax + archR;
-      // Main shaft fallen northward
-      place(new THREE.CylinderGeometry(0.52, 0.68, pierH * 0.85, 9), darkStone,
-        pierXe, gy + 0.45, az - 1.5,
-        0, 0.2, Math.PI * 0.5 - 0.25);
-      // Broken base stump still in ground
-      place(new THREE.CylinderGeometry(0.58, 0.70, 1.0, 9), darkStone,
-        pierXe, gy + 1.0 * 0.5 - 1.0 * 0.18, az, 0, 0.2, 0);
+      // ── Quarter-circle arch fragment ─────────────────────────────────────
+      // Torus origin is placed at the pier top. Arc = PI/2 (quarter circle).
+      // rx = -PI/2  → torus lies in XY plane (arc sweeps in X and Y, not XZ)
+      // ry = PI     → arc starts pointing toward +X (inward over road) and
+      //               sweeps upward through 90°, ending pointing straight up.
+      const archGeo = new THREE.TorusGeometry(arcR, tube, 8, 16, Math.PI * 0.5);
+      place(archGeo, mossyStone,
+        pierX, pierTopY + 0.45, az,
+        -Math.PI * 0.5,   // rx: tilt into XY plane
+        Math.PI,           // ry: start direction toward +X (into road)
+        0);
 
-      // ── Arch ring — TorusGeometry, half-arc on the standing side ────────
-      // A Torus with arc = Math.PI gives a semicircle.
-      // We rotate it so the flat ends point down (toward the pier tops),
-      // then translate it to sit on the standing pier's capital.
-      // Use arc = Math.PI * 0.55 to show just the surviving portion.
-      const torusR      = archR;          // matches pier spacing
-      const torusTube   = 0.28;
-      const archArcFull = Math.PI;        // full semicircle
-      const archArcHalf = Math.PI * 0.55; // surviving broken half
+      // ── Collapsed east pier ──────────────────────────────────────────────
+      const pierXe = pierX + arcR * 1.1;  // where the other pier would have been
+      const gye    = groundY(pierXe, az);
+      // Short stump still standing
+      place(new THREE.CylinderGeometry(0.52, 0.68, 1.6, 9), darkStone,
+        pierXe, gye + 1.6 * 0.5 - 1.6 * 0.18, az);
+      // Main shaft fallen, tilted toward camera (along Z)
+      place(new THREE.CylinderGeometry(0.50, 0.66, pierH * 0.8, 9), darkStone,
+        pierXe, gye + 0.5, az + 1.2,
+        Math.PI * 0.5 - 0.3, 0.2, 0);
 
-      // Full arch on the standing (west) pier side
-      const archGeo = new THREE.TorusGeometry(torusR, torusTube, 8, 18, archArcFull);
-      // Torus by default lies in XY plane, arc starts at +X going CCW.
-      // We want it to span across X (road width) rising in Y.
-      // Rotate 90° around Z so the arc rises in Y, centred on the road.
-      const archMesh = place(archGeo, mossyStone,
-        ax,                                         // centred on road
-        gy + pierH - pierH * 0.18 + 0.25,          // at capital top
-        az,
-        0, 0, Math.PI * 0.5);                       // arc rises in Y
-      // The torus centre is at road centre; its arc spans left-right.
-      // With rotation Z=PI/2, arc starts pointing -Y and sweeps through +X to +Y.
-      // Adjust: rotate around Y 90° so it spans across Z (road width) → X axis
-      archMesh.rotation.y = Math.PI * 0.5;
-      archMesh.rotation.z = 0;
-      archMesh.rotation.x = -Math.PI * 0.5;
+      // Broken arch voussoir blocks on the ground — suggest the rest of the arch fell
+      [
+        { x: pierX + 1.2, z: az + 0.3, ry: 0.3 },
+        { x: pierX + 2.2, z: az - 0.4, ry: 0.9 },
+        { x: pierX + 3.0, z: az + 0.6, ry: 1.4 },
+      ].forEach(({ x, z, ry }) => {
+        const vgy = groundY(x, z);
+        place(new THREE.BoxGeometry(0.7, 0.45, 0.55), slateStone,
+          x, vgy + 0.22, z, 0.1, ry, 0.08);
+      });
 
-      // Broken stub — the eastern half of the arch, fallen
-      const brokenGeo = new THREE.TorusGeometry(torusR, torusTube * 0.9, 8, 10, Math.PI * 0.45);
-      const brokenMesh = place(brokenGeo, darkStone,
-        ax + archR * 0.5, gy + 0.5, az + 0.8,
-        0.8, 0.4, 0.6);
-
-      // Keystone block on the ground near road centre
-      place(new THREE.BoxGeometry(0.9, 0.6, 0.7), slateStone,
-        ax + 0.4, gy + 0.30, az - 0.5, 0.2, 0.5, 0.15);
-
-      // Lintel chunk — rectangular block that formed the flat top, now on ground
-      place(new THREE.BoxGeometry(2.2, 0.55, 0.75), elvishStn,
-        ax - 1.0, gy + 0.28, az + 0.4, 0.15, 0.3, 0.1);
+      // Keystone on the ground
+      place(new THREE.BoxGeometry(0.85, 0.55, 0.65), elvishStn,
+        pierX + 3.6, groundY(pierX + 3.6, az - 0.3) + 0.28, az - 0.3,
+        0.2, 0.6, 0.15);
     }
 
     // ── CAMPFIRE ────────────────────────────────────────────────────────────

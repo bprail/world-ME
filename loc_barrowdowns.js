@@ -2,7 +2,7 @@
 //  loc_barrowdowns.js  —  The Barrow-downs
 //  Middle-earth walkable world · location module
 //
-//  Sequence: (Shire →) Barrow-downs → Weathertop
+//  Sequence: (Shire →) Barrow-downs → Bree
 //  Tone:     Cold, misty, moonlit night.  Wights, dread, ancient barrows.
 //
 //  TERRAIN STRATEGY
@@ -23,12 +23,12 @@
 //  Camp flattening: a wide Gaussian suppresses the base noise near the
 //  spawn point so the fire never clips into a mound.
 //
-//  TRANSITIONS  (new engine contract)
+//  TRANSITIONS
 //  ──────────────────────────────────
 //  transitions: [ { trigger:{x,z,radius}, to:'key' } ]
 //  arrivals:    { key: { x, z, yaw } }
 //  The transition trigger is at (0, -78) — the eastern edge of the downs.
-//  The arrival from Weathertop comes in from the east at (0, -60).
+//  The arrival from Bree comes in from the east at (0, -60).
 // ============================================================
 
 const BarrowDowns = (function () {
@@ -499,31 +499,36 @@ const BarrowDowns = (function () {
     start:    { x: CAMP_X, z: CAMP_Z, yaw: 0.35 },
     boundary: 110,   // tight — the downs are claustrophobic, not vast
 
+    async onLoad() {
+      // Nothing to fetch for this location — reserved for future use.
+      // Pre-compute nothing expensive; terrain and scene are built inline.
+    },
+
     lorePoints: [
       {
         pos: { x: -30, z: -30 }, radius: 12,
-        text: 'Here lie the Barrow-downs, where the Great Barrows were raised in the Second Age for the kings of Cardolan. In evil days the Witch-king of Angmar sent wights out of Rhûdaur to inhabit the mounds — and so they became a place of dread, shunned by all living folk.',
-        cite: 'The Lord of the Rings, Appendix A',
+        text: 'The Barrow-downs were raised in the Second Age as tombs for the kings of Cardolan. When the kingdom fell and plague emptied the land, the Witch-king of Angmar sent evil spirits out of Rhûdaur to dwell in the mounds. From that day the downs were shunned, and the name of the Barrow-wights passed into the dread of all who lived in Eriador.',
+        cite: '— The Fellowship of the Ring, Appendix A',
       },
       {
         pos: { x: 20, z: -55 }, radius: 10,
-        text: 'Tom Bombadil warned the hobbits: "Don\'t go a-meddling with old stone or cold Wights or prying in their houses, unless you be strong folk with hearts that never falter." The cold that breathes from the barrow-doors is no mere night chill — it is the breath of the dead years.',
-        cite: 'The Fellowship of the Ring, Ch. 7',
+        text: '"Don\'t go a-meddling with old stone or cold Wights or prying in their houses, unless you be strong folk with hearts that never falter!"',
+        cite: '— Tom Bombadil, The Fellowship of the Ring, I.7',
       },
       {
         pos: { x: 60, z: -35 }, radius: 11,
-        text: 'Frodo woke alone inside the barrow. A long arm groped toward his friends. He heard a cold voice chanting:\n"Cold be hand and heart and bone, and cold be sleep under stone: never more to wake on stony bed, never, till the Sun fails and the Moon is dead."',
-        cite: 'The Fellowship of the Ring, Ch. 8',
+        text: 'Frodo woke alone on the flat stone inside the barrow. A long arm was groping toward his friends. Then a voice began — cold, remote, as if it came out of the ground:\n\n"Cold be hand and heart and bone,\nand cold be sleep under stone:\nnever more to wake on stony bed,\nnever, till the Sun fails and the Moon is dead."',
+        cite: '— The Barrow-wight, The Fellowship of the Ring, I.8',
       },
       {
         pos: { x: 100, z: -55 }, radius: 10,
-        text: 'The blades of the Barrow-wights bore an ancient enchantment — the swords buried with the Dúnedain long ages past. When Merry struck the Witch-king on the Fields of the Pelennor, it was one of these long-kept blades that broke the spell, for they had been made with that very purpose in an age now forgotten.',
-        cite: 'The Return of the King, Appendix A',
+        text: 'In the barrows lay blades of the Dúnedain — forged long ago with spells against the Witch-king\'s servants. Tom gave one to each hobbit. It was with such a blade, buried ages in the mound, that Merry at last broke the spell upon the Lord of the Nazgûl on the Fields of the Pelennor.',
+        cite: '— The Return of the King, Appendix A',
       },
       {
         pos: { x: 145, z: -35 }, radius: 10,
-        text: 'Tom Bombadil came at Frodo\'s cry, singing:\n"Tom Bombadil, Tom Bombadillo! By water, wood and hill, by the reed and willow, by fire, sun and moon, harken now and hear us! Come, Tom Bombadil, for our need is near us!"\nThe wight fled; the barrow-door yawned open into pale sunlight.',
-        cite: 'The Fellowship of the Ring, Ch. 8',
+        text: '"Tom Bombadil, Tom Bombadillo!\nBy water, wood and hill, by the reed and willow,\nBy fire, sun and moon, harken now and hear us!\nCome, Tom Bombadil, for our need is near us!"',
+        cite: '— Tom Bombadil, The Fellowship of the Ring, I.8',
       },
     ],
 

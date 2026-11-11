@@ -7,6 +7,11 @@ const AmonHen = {
   name:     'Amon Hen',
   subtitle: 'The Hill of Sight · Nen Hithoel · Argonath',
 
+  // ─── onLoad ──────────────────────────────────────────────────────────────
+  async onLoad() {
+    // Nothing to prefetch for Amon Hen — buildScene uses only procedural geometry.
+  },
+
   // ─── Atmosphere ──────────────────────────────────────────────────────────
   atmosphere: {
     fogColor:         0x9aacb8,
@@ -153,73 +158,73 @@ const AmonHen = {
       pos:    { x: 0, z: 60 },
       radius: 6,
       text:   '"The Company came at last to Nen Hithoel... The air was cold and grey. The long journey was near its end, and the Fellowship had reached the parting of the ways."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 10',
+      cite:   '— The Fellowship of the Ring, II.10',
     },
     {
       pos:    { x: 4, z: 42 },
       radius: 5,
       text:   '"Frodo felt the burden of the Ring, a weight of dread and longing, pressing down upon him. He needed time to think, to decide the road he must take — alone."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 10',
+      cite:   '— The Fellowship of the Ring, II.10',
     },
     {
       pos:    { x: 10, z: 20 },
       radius: 5,
       text:   '"Boromir came and sat beside him. For a while he was silent. Then he began to speak of Minas Tirith, of its need, of the peril of Mordor pressing ever closer."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 10',
+      cite:   '— The Fellowship of the Ring, II.10',
     },
     {
       pos:    { x: 16, z: 8 },
       radius: 5,
       text:   '"It is a gift, I say; a gift to the foes of Mordor. It is mad not to use it, to use the power of the Enemy against him... Lend me the Ring!"',
-      cite:   '— Boromir, The Fellowship of the Ring, Book II, Ch. 10',
+      cite:   '— Boromir, The Fellowship of the Ring, II.10',
     },
     {
       pos:    { x: 8, z: -8 },
       radius: 5,
       text:   '"Frodo felt a sudden irrational longing to cry out to Boromir for help. But something held him back. He turned and fled up the hill."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 10',
+      cite:   '— The Fellowship of the Ring, II.10',
     },
     {
       pos:    { x: -6, z: -24 },
       radius: 5,
       text:   '"Sam went after his master as fast as he could go up the steep path. High overhead above the trees came the sound of wind, and of things rushing through the air."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 10',
+      cite:   '— The Fellowship of the Ring, II.10',
     },
     {
       pos:    { x: -6, z: -40 },
       radius: 5,
       text:   '"Then Boromir came. He stood over the fallen body and wept. His sword was drawn and stained. Many Orcs lay slain about him, but more were still coming."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 10',
+      cite:   '— The Fellowship of the Ring, II.10',
     },
     {
       pos:    { x: 0, z: -52 },
       radius: 6,
       text:   '"He sat upon the ancient seat of kings. And he saw — the Eye of Mordor, lidless and wreathed in flame, searching, moving across the world. It found him."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 10',
+      cite:   '— The Fellowship of the Ring, II.10',
     },
     {
       pos:    { x: -18, z: -50 },
       radius: 5,
       text:   '"Then a great dread fell on him, as if he heard the voice of Sauron, commanding: Come! Take off the Ring! Then he was weeping, and he put on the Ring and vanished."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 10',
+      cite:   '— The Fellowship of the Ring, II.10',
     },
     {
       pos:    { x: 18, z: -48 },
       radius: 5,
       text:   '"Aragorn knelt beside Boromir, and undid his belt, and tried to staunch the wounds in his breast. Boromir opened his eyes and looked up at Aragorn. I tried to take the Ring from Frodo... I am sorry."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 10',
+      cite:   '— Boromir, The Fellowship of the Ring, II.10',
     },
     {
       pos:    { x: 20, z: -34 },
       radius: 5,
       text:   '"You have conquered. Few have gained such a victory. Be at peace! Minas Tirith shall not fall!" Aragorn did not know whether he had spoken true; but as he said it, he knew that he did not believe it."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 10',
+      cite:   '— Aragorn, The Fellowship of the Ring, II.10',
     },
     {
       pos:    { x: 10, z: -58 },
       radius: 5,
       text:   '"Then Aragorn was left alone. Leaves came falling through the air. The last of the Fellowship stood upon Amon Hen as evening came on, and his heart was troubled."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 10',
+      cite:   '— The Fellowship of the Ring, II.10',
     },
   ],
 

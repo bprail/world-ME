@@ -14,6 +14,11 @@
 //   either from debugging or navigation
 const LOCATION_DEFAULT = 'barrowdowns';
 
+// LOCATION_CACHE_MAX: maximum number of location modules to keep in memory.
+// Current location + immediate neighbours are always protected from eviction.
+// Increase if you have many branching locations; decrease on low-memory devices.
+const LOCATION_CACHE_MAX = 6;
+
 const LOCATION_MANIFEST = {
   weathertop:  { src:'weathertop.js',      global:'Weathertop'  },
   barrowdowns: { src:'loc_barrowdowns.js', global:'BarrowDowns' },

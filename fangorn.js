@@ -7,6 +7,12 @@ const Fangorn = {
   name:     'Fangorn Forest',
   subtitle:  'The Entwood · Where the Trees Have Long Memories',
 
+  // ─── onLoad ───────────────────────────────────────────────────────────────
+  async onLoad() {
+    // No async data needed for Fangorn — geometry and lore are self-contained.
+    // Placeholder satisfies the contract; engine will await this before buildScene.
+  },
+
   // ─── Atmosphere ──────────────────────────────────────────────────────────
   atmosphere: {
     fogColor:         0x2a3520,
@@ -204,43 +210,43 @@ const Fangorn = {
       pos:    { x: 0, z: 55 },
       radius: 6,
       text:   '"There are old legends along the Mark of strange beings that dwell in the Entwood. None of our people go there."',
-      cite:   '— Éomer, The Two Towers',
+      cite:   '— Éomer, The Two Towers, III.2',
     },
     {
       pos:    { x: -8, z: 30 },
       radius: 5,
       text:   '"The wood was old, and full of rumour. Great trees, bare and silent, stood all about them... they felt the trees were watching them."',
-      cite:   '— The Two Towers, Book III',
+      cite:   '— The Two Towers, III.2',
     },
     {
       pos:    { x: -14, z: 10 },
       radius: 5,
       text:   '"It is a strange thing to meet an Ent these days... we are losing count of our years. We have no time to look for Entwives."',
-      cite:   '— Treebeard, The Two Towers',
+      cite:   '— Treebeard, The Two Towers, III.4',
     },
     {
       pos:    { x: -20, z: -18 },
       radius: 6,
       text:   '"Then suddenly... they saw, standing beside a large grey stone, an old man. He was stooped, leaning on a staff... his cloak was white."',
-      cite:   '— The Two Towers, Book III',
+      cite:   '— The Two Towers, III.5',
     },
     {
       pos:    { x: -20, z: -34 },
       radius: 5,
       text:   '"I am Gandalf the White; and I return to you now at the turn of the tide."',
-      cite:   '— Gandalf, The Two Towers',
+      cite:   '— Gandalf, The Two Towers, III.5',
     },
     {
       pos:    { x: -44, z: -26 },
       radius: 6,
       text:   '"We must go to Entmoot... It is a gathering of Ents — which does not often happen; it has not happened in many a long year."',
-      cite:   '— Treebeard, The Two Towers',
+      cite:   '— Treebeard, The Two Towers, III.4',
     },
     {
       pos:    { x: -10, z: -50 },
       radius: 5,
       text:   '"Ride then to Edoras and the halls of Théoden... for time presses. Let us come to Meduseld."',
-      cite:   '— Gandalf, The Two Towers',
+      cite:   '— Gandalf, The Two Towers, III.5',
     },
   ],
 

@@ -7,6 +7,11 @@ const Lothlorien = {
   name:     'Lothlórien',
   subtitle: 'The Golden Wood · Ford of Nimrodel',
 
+  async onLoad() {
+    // No async data needed for this location.
+    // Pre-compute nothing — buildScene generates all geometry procedurally.
+  },
+
   // ─── Atmosphere ──────────────────────────────────────────────────────────────
   atmosphere: {
     fogColor:         0x3a2d1e,   // warm amber-brown dusk mist
@@ -173,25 +178,25 @@ const Lothlorien = {
       pos:    { x: 0, z: 48 },
       radius: 6,
       text:   '"Frodo heard, or imagined that he heard, away above the rush and tinkle of the stream, a sound like soft singing."',
-      cite:   '— J.R.R. Tolkien, The Fellowship of the Ring',
+      cite:   '— The Fellowship of the Ring, II.6',
     },
     {
       pos:    { x: -2, z: 2 },
       radius: 5,
       text:   '"Already they had come to the Ford of Nimrodel. The stream was shallow and clear, and sparkled in the starlight."',
-      cite:   '— J.R.R. Tolkien, The Fellowship of the Ring',
+      cite:   '— The Fellowship of the Ring, II.6',
     },
     {
       pos:    { x: -10, z: -22 },
       radius: 5,
       text:   '"Legolas turned and set his foot on a root of the tree... The others followed him, and soon all the Company were upon the bank."',
-      cite:   '— J.R.R. Tolkien, The Fellowship of the Ring',
+      cite:   '— The Fellowship of the Ring, II.6',
     },
     {
       pos:    { x: 5, z: -50 },
       radius: 6,
       text:   '"There were lamps hanging from boughs and glimmering with a pale golden light... In the middle of it there was a great grey mallorn-tree of immense height."',
-      cite:   '— J.R.R. Tolkien, The Fellowship of the Ring',
+      cite:   '— The Fellowship of the Ring, II.6',
     },
   ],
 

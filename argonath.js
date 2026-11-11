@@ -9,6 +9,13 @@ const Argonath = {
   name: 'The Argonath',
   subtitle: 'Gates of Gondor · Nen Hithoel',
 
+  // Runs once after the script is first fetched, before buildScene.
+  // Nothing async needed for this location, but the hook is present
+  // for future use (e.g. loading heightmap overlays, audio cues).
+  async onLoad() {
+    // no-op for now
+  },
+
   // Called by the engine after buildScene, before the first frame.
   // fromKey: previous location registry key, or null on direct URL load.
   // refs: whatever buildScene returned.
@@ -169,28 +176,32 @@ const Argonath = {
   // -----------------------------------------------------------
   lorePoints: [
     {
-      pos: { x: 0, z: 50 },
+      pos: { x: 0, z: -50 },
       radius: 7,
-      text: '"The Company had been four days on the river when the land changed. The Emyn Muil were behind them now, and the great brown flood of Anduin rolled on between them."',
-      cite: '— J.R.R. Tolkien, The Fellowship of the Ring, Book II',
+      // Narration — no speaker
+      text: '"The Company had been borne ever southward by the swift-running middle waters of the Great River, and they crossed the North Undeep and the South Undeep in the night."',
+      cite: '— The Fellowship of the Ring, II.9',
     },
     {
       pos: { x: 0, z: -5 },
       radius: 6,
-      text: '"Then Frodo saw them: two great kings of stone, still with blurred eyes and crannied brows, looking down upon the river... it seemed to him that their hands were raised in warning."',
-      cite: '— J.R.R. Tolkien, The Fellowship of the Ring, Book II',
+      // Narration — no speaker
+      text: '"Frodo looked up in wonder. Pillars of stone, three times the height of a man, flanked the stream: the Argonath, the Gates of Kings. Through ages of the world the faces looked north."',
+      cite: '— The Fellowship of the Ring, II.9',
     },
     {
       pos: { x: -22, z: 25 },
       radius: 5,
-      text: '"So passed the evening, and the Fellowship went on through the night, and the pale day found them at last upon the western shore of Nen Hithoel."',
-      cite: '— J.R.R. Tolkien, The Fellowship of the Ring, Book II',
+      // Direct speech — speaker named
+      text: '"Long have I desired to look upon the likenesses of Isildur and Anárion, my sires of old. Under their shadow Elessar, the Elfstone son of Arathorn of the House of Valandil, has passed!"',
+      cite: '— Aragorn, The Fellowship of the Ring, II.9',
     },
     {
-      pos: { x: 0, z: -45 },
+      pos: { x: 0, z: 40 },
       radius: 6,
-      text: '"They had come through the Argonath and their hearts were troubled. Nen Hithoel lay before them, still and grey, and beyond it the shadow of Amon Hen."',
-      cite: '— J.R.R. Tolkien, The Fellowship of the Ring, Book II',
+      // Narration — no speaker
+      text: '"The River had opened into a wide lake. Nen Hithoel was its name. The lake was long and oval, bordered on all sides by grey slopes above which rose higher walls of stone."',
+      cite: '— The Fellowship of the Ring, II.9',
     },
   ],
 

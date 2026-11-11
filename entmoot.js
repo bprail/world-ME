@@ -7,6 +7,13 @@ const Entmoot = {
   name:     'The Entmoot',
   subtitle: 'Derndingle · Fangorn Forest',
 
+  // ─── Load hook ───────────────────────────────────────────────────────────
+  async onLoad() {
+    // No async data needed — onLoad is a no-op for this location.
+    // Reserved for future use (e.g. loading ambient birdsong cues or
+    // pre-computing the ent-figure geometry on a worker thread).
+  },
+
   // ─── Atmosphere ──────────────────────────────────────────────────────────
   atmosphere: {
     fogColor:         0x6b7a4a,   // deep forest green haze
@@ -146,38 +153,44 @@ const Entmoot = {
     {
       pos:    { x: 0, z: 0 },
       radius: 7,
-      text:   '"There was a great grey mound in the middle of it, almost like the stump of a huge tree; but it was not a stump — it had two eyes, very old and very slow."',
-      cite:   '— The Two Towers, Treebeard',
+      // Narration describing the entmoot hollow — no speaker
+      text:   'There was a great grey hill of stone in the middle of the valley, and there Treebeard stood, and the Ents were gathered round him in a wide circle.',
+      cite:   '— The Two Towers, III.4',
     },
     {
       pos:    { x: 28, z: -8 },
       radius: 6,
-      text:   '"Quickbeam was waked earlier than the others. He had spoken in haste, and had not had time to think things over."',
-      cite:   '— The Two Towers, Of Herbs and Stewed Rabbit',
+      // Narration about Quickbeam — no speaker
+      text:   'Quickbeam was waked earlier than the others. He had spoken in haste, and had not had time to think things over.',
+      cite:   '— The Two Towers, III.4',
     },
     {
       pos:    { x: -18, z: 12 },
       radius: 6,
+      // Direct speech by Merry
       text:   '"It is a solemn business. For three days they have been here, and nothing that Men or Hobbits would call a word has yet been said."',
-      cite:   '— The Two Towers, Merry to Pippin',
+      cite:   '— Merry, The Two Towers, III.4',
     },
     {
       pos:    { x: 14, z: -30 },
       radius: 5,
-      text:   '"We have already agreed that we have no time to waste. And yet — we still think it is too hasty. We are still talking."',
-      cite:   '— The Two Towers, an Ent at the Moot',
+      // Direct speech by Treebeard
+      text:   '"We have already agreed that we have no time to waste. And yet — we still think it is too hasty. We are still talking. But it is not idle talk."',
+      cite:   '— Treebeard, The Two Towers, III.4',
     },
     {
       pos:    { x: 0, z: 50 },
       radius: 5,
-      text:   '"Fangorn Forest lies upon the eastern slopes of the Misty Mountains. It is old, old — full of memory, and of wrath."',
-      cite:   '— The Two Towers, Gandalf',
+      // Direct speech by Gandalf — chapter III.5 (The White Rider)
+      text:   '"Fangorn is old, old even as the Elves would reckon it. As old as the forest on the doorstep of Moria. It is perilous to go in."',
+      cite:   '— Gandalf, The Two Towers, III.5',
     },
     {
       pos:    { x: -26, z: -20 },
       radius: 5,
+      // Direct speech by Treebeard
       text:   '"But Ents do not like being roused; and the Wood of Fangorn is old, and full of old anger."',
-      cite:   '— The Two Towers, Treebeard',
+      cite:   '— Treebeard, The Two Towers, III.4',
     },
   ],
 

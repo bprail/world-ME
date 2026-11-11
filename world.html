@@ -192,32 +192,79 @@ body { background:#000; overflow:hidden; font-family:'Georgia',serif; color:#e8d
 const START_LOCATION = location.hash.slice(1) || LOCATION_DEFAULT || 'weathertop';
 
 // ── DYNAMIC MODULE LOADER ─────────────────────────────────────────────────────
-// Loads a location's JS file on demand by injecting a <script> tag.
-// Resolves with the module object once the file has executed and set window.X.
-// Already-loaded modules are returned from cache — instant on revisit.
-const _moduleCache = {};
+// Loads location JS files on demand. Features:
+//   • LRU cache with high-watermark eviction (CACHE_MAX from locations.js or 6)
+//   • Current location + immediate neighbours are always protected from eviction
+//   • onLoad() runs once after first fetch; cleared on eviction so it reruns if revisited
+//   • preloadAdjacent() fetches neighbours silently after arrival
+
+const _moduleCache = {};   // key → module object
+const _cacheOrder  = [];   // LRU order, oldest first, most recent last
+
+const CACHE_MAX = (typeof LOCATION_CACHE_MAX !== 'undefined') ? LOCATION_CACHE_MAX : 6;
+
+function _touchCache(key){
+  const i = _cacheOrder.indexOf(key);
+  if(i !== -1) _cacheOrder.splice(i, 1);
+  _cacheOrder.push(key);
+}
+
+function _evictIfNeeded(){
+  if(Object.keys(_moduleCache).length <= CACHE_MAX) return;
+
+  // Protected: current location + its immediate neighbours
+  const safe = new Set([currentLocKey]);
+  const cur = _moduleCache[currentLocKey];
+  if(cur && cur.transitions) cur.transitions.forEach(tr => safe.add(tr.to));
+
+  // Evict the oldest unprotected entry
+  for(const key of _cacheOrder){
+    if(safe.has(key)) continue;
+    const mod = _moduleCache[key];
+    // Reset onLoad so it reruns if the player revisits
+    if(mod){ mod._onLoadDone = false; }
+    delete _moduleCache[key];
+    _cacheOrder.splice(_cacheOrder.indexOf(key), 1);
+    console.log('[cache] evicted:', key,
+      '— cache:', Object.keys(_moduleCache).join(', '));
+    break; // one eviction per load is enough
+  }
+}
 
 function loadLocationModule(key){
   return new Promise((resolve, reject) => {
-    // Cache hit — already loaded this session
+    // Cache hit
     if(_moduleCache[key]){
+      _touchCache(key);
       resolve(_moduleCache[key]);
       return;
     }
     const entry = LOCATION_MANIFEST[key];
-    if(!entry){
-      reject(new Error('Unknown location key: ' + key));
-      return;
-    }
+    if(!entry){ reject(new Error('Unknown location key: ' + key)); return; }
+
     const script = document.createElement('script');
     script.src = entry.src;
-    script.onload = () => {
+    script.onload = async () => {
       const mod = window[entry.global];
       if(!mod){
         reject(new Error(entry.src + ' loaded but did not set window.' + entry.global));
         return;
       }
       _moduleCache[key] = mod;
+      _touchCache(key);
+
+      // onLoad — runs once per cache lifetime, may be async
+      if(mod.onLoad && !mod._onLoadDone){
+        try {
+          await mod.onLoad();
+          mod._onLoadDone = true;
+        } catch(e){
+          console.warn('[onLoad] failed for', key, e);
+          // Non-fatal — buildScene proceeds without precomputed data
+        }
+      }
+
+      _evictIfNeeded();
       resolve(mod);
     };
     script.onerror = () => reject(new Error('Failed to load script: ' + entry.src));
@@ -225,15 +272,14 @@ function loadLocationModule(key){
   });
 }
 
-// Pre-load adjacent locations silently in the background after the current
-// one is ready, so transitions feel instant for linear play.
+// Pre-load adjacent locations silently after arrival so transitions feel instant.
 function preloadAdjacent(locMod){
   if(!locMod.transitions) return;
   setTimeout(()=>{
     for(const tr of locMod.transitions){
       if(!_moduleCache[tr.to]) loadLocationModule(tr.to).catch(()=>{});
     }
-  }, 2000); // 2s delay — don't compete with current location's build
+  }, 2000); // 2s delay — don't compete with current location's scene build
 }
 
 // ── RENDERER ─────────────────────────────────────────────────────────────────

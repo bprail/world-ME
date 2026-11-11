@@ -152,30 +152,35 @@ const MoriaDoors = {
   ],
 
   // ─── Lore ──────────────────────────────────────────────────────────────────
+  async onLoad() {
+    // Nothing to prefetch for this location.
+    // Stub present for engine compatibility.
+  },
+
   lorePoints: [
     {
       pos:    { x: 11, z: 44 },
       radius: 6,
       text:   '"The road climbed on. And now they could see the dark water lying still at the foot of the cliff, and beyond it the smooth grey face of the mountain wall."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 4',
+      cite:   '— The Fellowship of the Ring, II.4',
     },
     {
       pos:    { x: 11, z: 22 },
       radius: 6,
       text:   '"Before them, at the foot of a steep fall of rock, lay the dark still water. Out of the shadows the doors stood; invisible, not a crack or hinge showing."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 4',
+      cite:   '— The Fellowship of the Ring, II.4',
     },
     {
       pos:    { x: 9, z: 2 },
       radius: 5,
       text:   '"Gandalf stood before the rock and stared at the smooth grey face. Slowly, under his gaze, the faint design glimmered like moonlight on misty water: an arch with two trees, and a star above."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 4',
+      cite:   '— The Fellowship of the Ring, II.4',
     },
     {
       pos:    { x: 2, z: -14 },
       radius: 6,
       text:   '"The Doors of Durin, Lord of Moria. Speak, friend, and enter."',
-      cite:   '— The Fellowship of the Ring, Book II, Ch. 4',
+      cite:   '— The Fellowship of the Ring, II.4',
     },
   ],
 

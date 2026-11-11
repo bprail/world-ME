@@ -8,6 +8,8 @@ const PrancingPonyInn = {
   name:     'The Prancing Pony',
   subtitle: 'Common Room · Bree',
 
+  async onLoad() {},
+
   // ─── Atmosphere ───────────────────────────────────────────────────────────
   // Interior: warm firelight, heavy smoke, no sky visible
   atmosphere: {
@@ -59,25 +61,25 @@ const PrancingPonyInn = {
       pos:    { x: -7, z: -4 },
       radius: 5,
       text:   '"In a corner, away from the fire, sat a tall man with his hood drawn down over his face. On the table in front of him were two foaming mugs."',
-      cite:   '— The Fellowship of the Ring, Book I',
+      cite:   '— The Fellowship of the Ring, I.10',
     },
     {
       pos:    { x: 0, z: 8 },
       radius: 5,
       text:   '"The common room of the Prancing Pony was a fine room. The fire was burning brightly, and candles were lit on the many tables."',
-      cite:   '— The Fellowship of the Ring, Book I',
+      cite:   '— The Fellowship of the Ring, I.9',
     },
     {
       pos:    { x: 8, z: 2 },
       radius: 4,
-      text:   '"Mr. Underhill!" cried Butterbur. "Now who could have thought of it? Not the name I expected. But come in, come in!"',
-      cite:   '— The Fellowship of the Ring, Book I',
+      text:   '"Mr. Underhill!" said Butterbur. "Now who could have thought of it? But come in! And this will be Mr. Took, no doubt?"',
+      cite:   '— Butterbur, The Fellowship of the Ring, I.9',
     },
     {
       pos:    { x: -4, z: -12 },
       radius: 4,
-      text:   '"All that is gold does not glitter, not all those who wander are lost…" — a crumpled letter from Gandalf lay on the table.',
-      cite:   '— The Fellowship of the Ring, Book I',
+      text:   '"All that is gold does not glitter, not all those who wander are lost; the old that is strong does not wither, deep roots are not reached by the frost."',
+      cite:   '— The Fellowship of the Ring, I.10',
     },
   ],
 

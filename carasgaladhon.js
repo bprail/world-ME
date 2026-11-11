@@ -1,5 +1,5 @@
 // carasgaladhon.js — Caras Galadhon, the City of the Trees
-// Sequence: Lothlórien → Caras Galadhon → Anduin
+// Sequence: Lothlórien → Caras Galadhon → Argonath
 // Time: Golden daytime, autumn
 
 const CarasGaladhon = {
@@ -97,46 +97,54 @@ const CarasGaladhon = {
       pos: { x: 0, z: 50 },
       radius: 6,
       text: '"At the hill\'s foot Frodo found Aragorn, standing still and silent as a tree; but in his hand was a small cloth in which lay a few crumbs of lembas."',
-      cite: '— The Fellowship of the Ring, Book II, Ch. 7',
+      cite: '— The Fellowship of the Ring, II.7',
     },
     {
       pos: { x: 14, z: 0 },
       radius: 6,
       text: '"They dwelt in the tree-city of Caras Galadhon, in halls of leaves, and no footstep of enemy had ever come there."',
-      cite: '— The Fellowship of the Ring, Book II, Ch. 7',
+      cite: '— The Fellowship of the Ring, II.7',
     },
     {
       pos: { x: 0, z: -8 },
       radius: 7,
       text: '"At the crown of the hill was a wide space of level ground; the great trunk of a mallorn-tree rose there, and its wide-spread branches bore lamps of silver light."',
-      cite: '— The Fellowship of the Ring, Book II, Ch. 7',
+      cite: '— The Fellowship of the Ring, II.7',
     },
     {
       pos: { x: -10, z: -22 },
       radius: 5,
       text: '"In the evening Galadriel came to where Frodo sat, and she brought a mirror of silver upon a pedestal. She filled it with water from a silver ewer."',
-      cite: '— The Fellowship of the Ring, Book II, Ch. 7',
+      cite: '— The Fellowship of the Ring, II.7',
     },
     {
       pos: { x: -10, z: -22 },
       radius: 3,
       text: '"I give you the light of Eärendil, our most beloved star. May it be a light to you in dark places, when all other lights go out."',
-      cite: '— The Fellowship of the Ring, Book II, Ch. 8',
+      cite: '— Galadriel, The Fellowship of the Ring, II.8',
     },
     {
       pos: { x: 20, z: -50 },
       radius: 6,
       text: '"They had ridden on the river for many miles, and the mountains of the west were far away. On either side the banks were clothed in trees, and the light of the setting sun gleamed on the great stream."',
-      cite: '— The Fellowship of the Ring, Book II, Ch. 9',
+      cite: '— The Fellowship of the Ring, II.9',
     },
   ],
 
+  // ─── onLoad ────────────────────────────────────────────────────────────────
+  async onLoad() {
+    // Pre-bake the terrain Y at the great tree base so the walkables getter
+    // reads a cached value rather than recomputing hillHeight on every access.
+    this._greatTreeGY = this.hillHeight(0, -8);
+  },
+
   // ─── Walkables — great tree spiral steps + flet ────────────────────────────
-  // yStart/yEnd are absolute world Y. hillHeight is called here (module-load
-  // time) to bake the terrain offset in — groundY is not available yet but
-  // hillHeight is on the same object and returns the same value.
+  // yStart/yEnd are absolute world Y. Uses _greatTreeGY cached by onLoad;
+  // falls back to a direct hillHeight call if accessed before onLoad runs.
   get walkables() {
-    const gy = this.hillHeight(0, -8); // terrain Y at the great tree base
+    const gy = this._greatTreeGY !== undefined
+      ? this._greatTreeGY
+      : this.hillHeight(0, -8); // fallback — terrain Y at the great tree base
     // Step heights relative to terrain, then shifted to absolute world Y:
     //   step 1:  0.5 → 3.5   (rises  3 units)
     //   step 2:  3.5 → 6.5   (rises  3 units)
@@ -166,8 +174,7 @@ const CarasGaladhon = {
 
   arrivals: {
     lothlorien: { x:  0, z:  60, yaw: 0           },  // arriving from +Z, facing -Z
-    argonath:     { x: 20, z: -60, yaw: Math.PI * 1.5 }, // arriving from -X side, facing +X → no, from east
-    // Anduin is to the east (+X); arriving from there means coming from +X, facing -X
+    argonath:   { x: 20, z: -60, yaw: Math.PI * 1.5 }, // arriving from +X, facing -X
   },
 
   // ─── Boundary & transitions ────────────────────────────────────────────────

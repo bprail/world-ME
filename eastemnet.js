@@ -7,6 +7,12 @@ const Eastemnet = {
   name:     'The Eastemnet',
   subtitle: 'Plains of Rohan · Day Three of the Hunt',
 
+  // ─── onLoad ─────────────────────────────────────────────────────────────────
+  async onLoad() {
+    // No async data needed — all geometry is procedural.
+    // Placeholder retained so the hook is present if pre-computation is added later.
+  },
+
   // ─── Atmosphere ────────────────────────────────────────────────────────────
   atmosphere: {
     fogColor:         0xa8b8c8,
@@ -135,37 +141,37 @@ const Eastemnet = {
       pos:    { x: 0,  z: 55 },
       radius: 6,
       text:   '"Their trail is not hard to find," said Aragorn. "It runs straight as a bowstring."',
-      cite:   '— The Two Towers, The Riders of Rohan',
+      cite:   '— Aragorn, The Two Towers, III.1',
     },
     {
       pos:    { x: 18, z: 30 },
       radius: 5,
       text:   '"There lie the woods of Fangorn," said Legolas. "What do you feel, Gimli? Cold or not, there is something there."',
-      cite:   '— The Two Towers, The Riders of Rohan',
+      cite:   '— Legolas, The Two Towers, III.2',
     },
     {
       pos:    { x: -6, z: 5 },
       radius: 6,
       text:   '"We have not ridden through the night for nothing," said Éomer. "There is old work here as well as new. Here are signs of Orcs."',
-      cite:   '— The Two Towers, The Riders of Rohan',
+      cite:   '— Éomer, The Two Towers, III.2',
     },
     {
       pos:    { x: 10, z: -12 },
       radius: 5,
       text:   '"We slew many, but we found no hobbits among them. I cannot think what has become of them. They had not the might to escape the Orcs by running. But how do you know of Halflings?"',
-      cite:   '— The Two Towers, The Riders of Rohan',
+      cite:   '— Éomer, The Two Towers, III.2',
     },
     {
       pos:    { x: -14, z: -32 },
       radius: 5,
       text:   '"Then there is hope yet," said Legolas. He stooped and from the trampled grass picked up a thing that glinted in the sunlight. It was a small leaf-shaped brooch.',
-      cite:   '— The Two Towers, The Uruk-hai',
+      cite:   '— The Two Towers, III.3',
     },
     {
       pos:    { x: 4, z: -52 },
       radius: 6,
       text:   '"There is Fangorn," said Legolas, pointing ahead. "Strangest of all the forests of Middle-earth. I have heard of it, but never thus have I seen it."',
-      cite:   '— The Two Towers, The Riders of Rohan',
+      cite:   '— Legolas, The Two Towers, III.2',
     },
   ],
 

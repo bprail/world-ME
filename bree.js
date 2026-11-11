@@ -8,6 +8,8 @@ const Bree = {
   name:     'Bree',
   subtitle: 'The Prancing Pony · The Great East Road',
 
+  async onLoad() {},
+
   // ─── Atmosphere ───────────────────────────────────────────────────────────
   atmosphere: {
     fogColor:         0x1a1e1c,       // cold wet grey-green
@@ -131,31 +133,31 @@ const Bree = {
       pos:    { x: 0, z: 0 },
       radius: 7,
       text:   '"At the sign of the Prancing Pony by Barliman Butterbur," said Frodo. "We hear it\'s a good house, and a meeting place for travellers from afar."',
-      cite:   '— The Fellowship of the Ring, Book I',
+      cite:   '— Frodo, The Fellowship of the Ring, I.9',
     },
     {
       pos:    { x: -40, z: 2 },
       radius: 6,
       text:   '"Bree was the chief village of the Bree-land, a small inhabited region, like an island in the empty lands round about."',
-      cite:   '— The Fellowship of the Ring, Book I',
+      cite:   '— The Fellowship of the Ring, I.9',
     },
     {
       pos:    { x: -5, z: -22 },
       radius: 6,
       text:   '"On the hill of Bree there were many houses of stone, and round it, under the shelter of the hill, there was a village."',
-      cite:   '— The Fellowship of the Ring, Book I',
+      cite:   '— The Fellowship of the Ring, I.9',
     },
     {
       pos:    { x: 40, z: 2 },
       radius: 6,
       text:   '"The Road ran on past Bree, and wound away towards the East, through the lands they had come to call the Wild."',
-      cite:   '— The Fellowship of the Ring, Book I',
+      cite:   '— The Fellowship of the Ring, I.9',
     },
     {
       pos:    { x: 12, z: 14 },
       radius: 5,
       text:   '"A dark figure climbed quickly in, and as it did so, it pulled back its hood. In the light of the lanterns it could be seen that the figure was that of a man, lean and dark."',
-      cite:   '— The Fellowship of the Ring, Book I',
+      cite:   '— The Fellowship of the Ring, I.10',
     },
   ],
 

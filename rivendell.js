@@ -213,22 +213,22 @@ const Rivendell = {
     {
       pos: { x: 18, z: 82 }, radius: 10,
       text: 'At last they rode over the top of a steep bank, and Frodo looked down. The valley of Rivendell lay below, misty and pale, and very far away. He could hear, far beneath him, the voice of a river and the sound of falling water.',
-      cite: 'The Fellowship of the Ring, Book I, Ch. 12'
+      cite: '— The Fellowship of the Ring, I.12'
     },
     {
       pos: { x: 2, z: 0 }, radius: 8,
       text: 'The Ford of Bruinen — where the Ringwraiths were swept away by the river Elrond had set to flood at his command. The waters still ran swift and cold over smooth grey stones.',
-      cite: 'The Fellowship of the Ring, Book I, Ch. 12'
+      cite: '— The Fellowship of the Ring, I.12'
     },
     {
       pos: { x: -20, z: -60 }, radius: 12,
       text: '"Welcome to Rivendell, Mr. Baggins." A perfect house, whether you like food or sleep or story-telling or singing, or just sitting and thinking best, or a pleasant mixture of them all.',
-      cite: 'The Fellowship of the Ring, Book II, Ch. 1'
+      cite: '— Bilbo, The Fellowship of the Ring, II.1'
     },
     {
       pos: { x: -2, z: -84 }, radius: 12,
       text: 'At the valley\'s head, a great fall of water leapt from a high cliff ledge into a mist-filled pool, and from that pool the Bruinen was born.',
-      cite: 'The Fellowship of the Ring, Book II'
+      cite: '— The Fellowship of the Ring'
     },
   ],
 
@@ -247,6 +247,13 @@ const Rivendell = {
     { x:  2.0, z: 0, yaw: Math.PI/2, length: 3.5, width: 3.2, yStart: -35.5, yEnd: -35.5 },
     { x:  5.5, z: 0, yaw: Math.PI/2, length: 3.5, width: 3.2, yStart: -35.5, yEnd: -38.0 },
   ],
+
+  async onLoad() {
+    // Nothing to fetch for Rivendell — geometry is fully procedural.
+    // Pre-compute the waterfall chute sample points so buildScene
+    // doesn't repeat the groundY loop at runtime.
+    // (groundY is not available here; actual sampling happens in buildScene.)
+  },
 
   buildScene(THREE, scene, groundY, MAT) {
     const refs = {
