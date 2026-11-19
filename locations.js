@@ -34,6 +34,9 @@ const LOCATION_MANIFEST = {
   fangorn:     { src: 'fangorn.js',        global: 'Fangorn'    },
   entmoot:     { src: 'entmoot.js',        global: 'Entmoot'    },
   edoras:      { src: 'edoras.js',         global: 'Edoras'     },
+  isengard:    { src: 'isengard.js',       global: 'Isengard'   },
+  helmsdeep_keep: { src: 'helmsdeep_keep.js', global: 'InnerKeep' },
+  helmsdeep:   { src: 'helmsdeep.js',      global: 'HelmsDeep'  },
   bree:        { src:'bree.js',            global:'Bree'        },
   prancingponyinn: { src:'prancingponyinn.js', global:'PrancingPonyInn'},
 };
