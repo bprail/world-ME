@@ -45,17 +45,13 @@ const Fangorn = {
     // Broad undulation
     h += fbm(x * 0.015, z * 0.015) * 8.0;
 
-    // Rocky ledge — raised shelf in the north-west quadrant where the hunters climb
-    // centred around (-18, -20)
+    // Rocky hill — broad shallow dome, tall enough to crest tree height
+    // centred around (-18, -22), wide radius so the slope is gentle
     const ledgeDx = x + 18;
-    const ledgeDz = z + 20;
+    const ledgeDz = z + 22;
     const ledgeDist = Math.sqrt(ledgeDx * ledgeDx + ledgeDz * ledgeDz);
-    const ledgeRise = Math.max(0, 1.0 - ledgeDist / 22);
-    h += ledgeRise * ledgeRise * 14.0;
-
-    // Secondary ridge running south from ledge — eroded spine
-    const ridgeLine = Math.abs(x + 18) < 6 ? Math.max(0, (-z - 5) / 30) : 0;
-    h += ridgeLine * 3.5 * n2d(x * 0.08, z * 0.08);
+    const ledgeRise = Math.max(0, 1.0 - ledgeDist / 42);  // wide: 42-unit radius
+    h += ledgeRise * ledgeRise * 20.0;                     // taller crown (~20 u above base)
 
     // Gentle bowl at scene centre — the meeting dell
     const dellDist = Math.sqrt(x * x + z * z);
@@ -115,6 +111,46 @@ const Fangorn = {
         lerp(col[0], rootPth[0], pt),
         lerp(col[1], rootPth[1], pt),
         lerp(col[2], rootPth[2], pt),
+      ];
+    }
+
+    // Stone path up the hill — grey worn rock along the path centreline
+    // Mirrors the segment list in onPath(); grey fades out below the hill crown.
+    const stoneGrey = [0.38, 0.36, 0.33];
+    function stoneDistToSeg(px, pz, ax, az, bx, bz) {
+      const dx = bx - ax, dz = bz - az;
+      const lenSq = dx * dx + dz * dz;
+      if (lenSq === 0) return Math.sqrt((px-ax)**2 + (pz-az)**2);
+      let t = ((px - ax) * dx + (pz - az) * dz) / lenSq;
+      t = Math.max(0, Math.min(1, t));
+      return Math.sqrt((px - (ax + t*dx))**2 + (pz - (az + t*dz))**2);
+    }
+    const stoneSegs = [
+      // Main stem south entry → dell
+      [0,60],[0,38],  [0,38],[-5,20],  [-5,20],[-12,5],  [-12,5],[-16,-10],
+      // Hill approach and crown
+      [-16,-10],[-18,-20],  [-18,-20],[-20,-30],
+      // North fork toward Edoras
+      [-20,-30],[-15,-44],  [-15,-44],[-8,-58],
+      // West fork toward Entmoot
+      [-20,-30],[-32,-28],  [-32,-28],[-50,-22],  [-50,-22],[-65,-12],
+    ];
+    const STONE_R = 1.8;  // narrower than onPath — worn stone, not soft dirt edge
+    let stoneMinD = Infinity;
+    for (let i = 0; i < stoneSegs.length; i += 2) {
+      const [ax, az] = stoneSegs[i];
+      const [bx, bz] = stoneSegs[i + 1];
+      const d = stoneDistToSeg(vx, vz, ax, az, bx, bz);
+      if (d < stoneMinD) stoneMinD = d;
+    }
+    if (stoneMinD < STONE_R) {
+      // Strength peaks at centreline; edge noise breaks up the regularity
+      const edgeNoise = noise2d(vx * 0.35 + 11, vz * 0.35 + 7) * 0.3;
+      const st = Math.max(0, (1 - stoneMinD / STONE_R) - edgeNoise) * 0.72;
+      col = [
+        lerp(col[0], stoneGrey[0], st),
+        lerp(col[1], stoneGrey[1], st),
+        lerp(col[2], stoneGrey[2], st),
       ];
     }
 
@@ -256,7 +292,7 @@ const Fangorn = {
   arrivals: {
     eastemnet: { x: 0,   z:  60, yaw: 0           }, // arriving from +Z, facing -Z
     edoras:    { x: -8,  z: -60, yaw: Math.PI      }, // arriving from -Z, facing +Z
-    entmoot:   { x: -65, z: -15, yaw: Math.PI * 1.5 }, // arriving from -X, facing +X
+    entmoot:   { x: -72, z:  -5, yaw: Math.PI * 1.5 }, // arriving from -X, facing +X
   },
 
   // ─── Boundary and Transitions ─────────────────────────────────────────────
@@ -272,32 +308,26 @@ const Fangorn = {
       to: 'edoras',
     },
     {
-      trigger: { x: -72, z: -15, radius: 8 },
+      trigger: { x: -75, z: -5, radius: 8 },
       to: 'entmoot',
     },
   ],
 
   // ─── Walkables — Rocky Ledge ─────────────────────────────────────────────
   walkables: [
-    // South approach ramp — rises from forest floor up to ledge foot
-    { x: -17, z:  -5, yaw: 0, length: 10, width: 5.0, yStart: 2.0, yEnd: 5.5 },
-    // Ledge mid-shelf — wider flat area
-    { x: -18, z: -15, yaw: 0, length:  8, width: 6.5, yStart: 5.5, yEnd: 7.5 },
-    // Ledge crown — broad flat area where Gandalf stands
-    { x: -19, z: -27, yaw: 0, length: 14, width: 8.0, yStart: 7.5, yEnd: 7.5 },
-    // West descent off ledge crown toward Entmoot path
-    { x: -27, z: -30, yaw: Math.PI * 0.5, length: 12, width: 5.0, yStart: 7.5, yEnd: 3.5 },
-    // North ramp off crown toward Edoras path
-    { x: -18, z: -38, yaw: 0, length:  8, width: 5.0, yStart: 7.5, yEnd: 2.5 },
+    // The hill is terrain-shaped (hillHeight handles most of the rise).
+    // Walkables only needed for the flat crown and two gentle exit ramps
+    // where the terrain slope alone isn't quite right.
+
+    // Crown — broad flat meeting area where Gandalf stands
+    { x: -19, z: -27, yaw: 0, length: 18, width: 12.0, yStart: 19.5, yEnd: 19.5 },
+    // West descent off crown toward Entmoot path — long gentle ramp
+    { x: -32, z: -24, yaw: Math.PI * 0.5, length: 22, width: 6.0, yStart: 19.5, yEnd: 6.0 },
+    // North descent off crown toward Edoras path — long gentle ramp
+    { x: -18, z: -40, yaw: 0, length: 14, width: 6.0, yStart: 19.5, yEnd: 5.0 },
   ],
 
-  // ─── Barriers ─────────────────────────────────────────────────────────────
-  barriers: [
-    // Cliff face east of ledge — sheer drop
-    { x: -8,  z: -22, w: 10, d: 30, yaw: 0 },
-    // Cliff face north of ledge crown — prevents walking off back
-    { x: -19, z: -48, w: 20, d:  8, yaw: 0 },
-  ],
+  barriers: [],
 
   // ─── Build Scene ──────────────────────────────────────────────────────────
   buildScene(THREE, scene, groundY, MAT, FX) {
